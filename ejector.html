@@ -1316,8 +1316,14 @@ function applyRepeatChange(mode) {
   if (mode === 'today') {
     if (!task.overrides) task.overrides = {};
     task.overrides[currentDayOffset] = { start: newStart };
+    // あとでリストからタイムラインへ移動する場合は allocated を true に
+    if (!task.allocated) {
+      task.allocated = true;
+      task.start = newStart;
+    }
   } else {
     task.start = newStart;
+    task.allocated = true;
     task.overrides = {};
   }
   closeRepeatConfirm();
@@ -1342,10 +1348,27 @@ function saveEdit() {
 
   // 繰り返しタスクの時間変更検出
   const isRepeat        = task.repeatMode !== 'none';
-  const timeChanged     = newStart !== task.start;
+  const wasAllocated    = task.allocated;
+  const timeChanged     = newStart !== (task.start || 0);
   const settingsChanged = newTitle !== task.title || newDur !== task.duration || newRepeat !== task.repeatMode;
 
-  if (isRepeat && timeChanged && !settingsChanged) {
+  // あとでリストからタイムラインへ初めて配置する場合 → 確認モーダルを出す
+  if (isRepeat && !wasAllocated) {
+    pendingRepeatChange = { task, newStart };
+    const h = Math.floor(newStart/60), m = newStart%60;
+    const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    document.getElementById('repeatConfirmMsg').textContent =
+      `「${task.title}」を ${timeStr} に配置します。今日だけですか？それとも今後すべての日に反映しますか？`;
+    document.getElementById('repeatConfirmOverlay').style.display = 'flex';
+    // タイトル・時間等は先に更新
+    task.title    = newTitle;
+    task.duration = newDur;
+    task.customDays = newCustom;
+    return;
+  }
+
+  // すでにタイムラインにある繰り返しタスクの時間変更
+  if (isRepeat && wasAllocated && timeChanged && !settingsChanged) {
     // アプリ内モーダルで確認
     pendingRepeatChange = { task, newStart };
     const h = Math.floor(newStart/60), m = newStart%60;
@@ -1492,17 +1515,23 @@ document.addEventListener('visibilitychange', () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js');
-      // 起動のたびに更新チェックを強制
-      await reg.update();
+      const reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+      // 起動のたびに更新チェック
+      reg.update();
+
+      // 新しいSWが見つかったら即リロード
       reg.addEventListener('updatefound', () => {
         const newSW = reg.installing;
         newSW.addEventListener('statechange', () => {
-          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-            // 新しいSWが入ったらページをリロード
+          if (newSW.state === 'activated') {
             window.location.reload();
           }
         });
+      });
+
+      // 別タブで更新されたSWが制御権を取ったらリロード
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
       });
     } catch(e) {
       console.log('SW error', e);
