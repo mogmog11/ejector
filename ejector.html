@@ -1048,12 +1048,12 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
     const taskStart = task.start;
     const taskEnd   = task.start + origTask.duration;
     const isInProgress = currentDayOffset === 0 && nowMin > taskStart && nowMin < taskEnd;
-    // 完了済みかつ終了時刻を過ぎている場合も100%塗る
-    const isPassedDone = currentDayOffset === 0 && done && nowMin >= taskEnd;
+    // 終了時刻を過ぎている場合（完了・未完了問わず）100%塗る
+    const isPassed = currentDayOffset === 0 && nowMin >= taskEnd;
     const progress = isInProgress
       ? Math.round(((nowMin - taskStart) / origTask.duration) * 100)
-      : isPassedDone ? 100 : 0;
-    const showProgress = isInProgress || isPassedDone;
+      : isPassed ? 100 : 0;
+    const showProgress = isInProgress || isPassed;
 
     const el = document.createElement('div');
     el.className = `block ${done?'completed':''} ${isSpecial?'special':''} ${showProgress?'in-progress':''}`;
@@ -1327,7 +1327,8 @@ function openEdit(id) {
     document.getElementById('editTimeH').value = hv;
     document.getElementById('editTimeM').value = Math.round(mv / 5) * 5 % 60;
     document.getElementById('editTimeBox').style.display  = 'block';
-    document.getElementById('moveLaterBtn').style.display = task.repeatMode !== 'none' ? 'none' : 'block';
+    document.getElementById('moveLaterBtn').style.display = 'block';
+    document.getElementById('moveLaterBtn').textContent = task.repeatMode !== 'none' ? '「あとで」に移動' : '「あとで」に戻す';
     document.getElementById('editNotifyBox').style.display = 'block';
   } else {
     document.getElementById('editTimeBox').style.display  = 'none';
@@ -1352,20 +1353,41 @@ function closeRepeatConfirm() {
 
 function applyRepeatChange(mode) {
   if (!pendingRepeatChange) return;
-  const { task, newStart } = pendingRepeatChange;
+  const { task, newStart, fromLater } = pendingRepeatChange;
+
   if (mode === 'today') {
-    if (!task.overrides) task.overrides = {};
-    task.overrides[currentDayOffset] = { start: newStart };
-    // あとでリストからタイムラインへ移動する場合は allocated を true に
-    if (!task.allocated) {
-      task.allocated = true;
-      task.start = newStart;
+    if (fromLater) {
+      // あとでリストの繰り返しタスクを「今日だけ」配置：
+      // 元タスクはそのままにして、今日限りの非繰り返しコピーを作る
+      const todayOnly = {
+        id: Date.now(),
+        title: task.title,
+        duration: task.duration,
+        allocated: true,
+        start: newStart,
+        repeatMode: 'none',
+        allocatedOffset: currentDayOffset,
+        createdOffset: currentDayOffset,
+        customDays: [],
+        doneDates: [],
+        notify: task.notify || false,
+      };
+      state.tasks.push(todayOnly);
+    } else {
+      // タイムライン上の繰り返しタスクを「今日だけ」時間変更
+      if (!task.overrides) task.overrides = {};
+      task.overrides[currentDayOffset] = { start: newStart };
     }
   } else {
+    // 今後すべて → task.start を更新、overrides をクリア
     task.start = newStart;
     task.allocated = true;
     task.overrides = {};
+    if (fromLater) {
+      task.createdOffset = currentDayOffset;
+    }
   }
+
   closeRepeatConfirm();
   closeEdit();
   saveState();
@@ -1394,13 +1416,12 @@ function saveEdit() {
 
   // あとでリストからタイムラインへ初めて配置する場合 → 確認モーダルを出す
   if (isRepeat && !wasAllocated) {
-    pendingRepeatChange = { task, newStart };
+    pendingRepeatChange = { task, newStart, fromLater: true };
     const h = Math.floor(newStart/60), m = newStart%60;
     const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
     document.getElementById('repeatConfirmMsg').textContent =
       `「${task.title}」を ${timeStr} に配置します。今日だけですか？それとも今後すべての日に反映しますか？`;
     document.getElementById('repeatConfirmOverlay').style.display = 'flex';
-    // タイトル・時間等は先に更新
     task.title    = newTitle;
     task.duration = newDur;
     task.customDays = newCustom;
@@ -1409,8 +1430,7 @@ function saveEdit() {
 
   // すでにタイムラインにある繰り返しタスクの時間変更
   if (isRepeat && wasAllocated && timeChanged && !settingsChanged) {
-    // アプリ内モーダルで確認
-    pendingRepeatChange = { task, newStart };
+    pendingRepeatChange = { task, newStart, fromLater: false };
     const h = Math.floor(newStart/60), m = newStart%60;
     const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
     document.getElementById('repeatConfirmMsg').textContent =
@@ -1426,10 +1446,16 @@ function saveEdit() {
   task.customDays = newCustom;
   task.notify     = document.getElementById('editNotify').checked;
   if (task.allocated || task.repeatMode !== 'none') {
-    task.start = newStart;
     task.allocated = true;
     if (task.repeatMode === 'none') {
+      // 繰り返しなし：task.start を直接更新
+      task.start = newStart;
       task.allocatedOffset = currentDayOffset;
+    } else if (timeChanged) {
+      // 繰り返しあり＋時間変更：全日変更として task.start を更新
+      // （タイトル等と同時変更のケースは「今後すべて」扱いとする）
+      task.start = newStart;
+      task.overrides = {}; // 既存オーバーライドをクリア
     }
   }
   if (!task.allocated && document.getElementById('editTimeBox').style.display !== 'none') {
@@ -1484,7 +1510,16 @@ function applyDelete(mode) {
 function moveToLaterFromEdit() {
   const task = state.tasks.find(t => t.id === editingTaskId);
   if (!task) return;
-  task.allocated = false; task.repeatMode = 'none'; task.start = null;
+  if (task.repeatMode !== 'none') {
+    // 繰り返しタスク → allocated=false にするだけ（repeatModeは維持）
+    task.allocated = false;
+    task.start = null;
+    task.overrides = {};
+  } else {
+    task.allocated = false;
+    task.repeatMode = 'none';
+    task.start = null;
+  }
   closeEdit(); saveState(); renderAll();
 }
 
