@@ -354,7 +354,27 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   </div>
 </div>
 
-<!-- ─── 同期設定モーダル ─── -->
+<!-- ─── 繰り返し変更確認モーダル ─── -->
+<div id="repeatConfirmOverlay" class="overlay">
+  <div class="modal-card" onclick="event.stopPropagation()" style="max-width:340px;">
+    <p class="modal-title" style="font-size:15px;">🔁 繰り返しタスクの変更</p>
+    <p id="repeatConfirmMsg" style="font-size:13px; color:var(--ink2); margin:0 0 20px; line-height:1.7;"></p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button onclick="applyRepeatChange('today')"
+        style="padding:14px; background:var(--green); color:white; border-radius:12px; font-weight:700; font-size:14px;">
+        今日のみ変更
+      </button>
+      <button onclick="applyRepeatChange('all')"
+        style="padding:14px; background:var(--blue); color:white; border-radius:12px; font-weight:700; font-size:14px;">
+        今後すべて変更
+      </button>
+      <button onclick="closeRepeatConfirm()"
+        style="padding:12px; color:var(--ink3); font-weight:700; font-size:13px;">
+        キャンセル
+      </button>
+    </div>
+  </div>
+</div>
 <div id="syncOverlay" class="overlay" onclick="closeSyncSettings()">
   <div class="modal-card" onclick="event.stopPropagation()">
     <p class="modal-title">☁ データ同期設定</p>
@@ -612,8 +632,11 @@ function disconnectSync() {
 //  LOGIC
 // ══════════════════════════════════════════════
 function isTaskForToday(task, offset) {
-  if (!task.allocated && task.repeatMode === 'none') return false;
-  if (task.repeatMode === 'none')  return task.allocated;
+  // あとでリストの繰り返しタスク（allocated=false）はタイムラインに乗せない
+  if (!task.allocated) return false;
+  if (task.repeatMode === 'none') return true; // allocated=true & no-repeat → show
+
+  // 繰り返しタスク（allocated=true）の曜日チェック
   if (task.repeatMode === 'daily') return true;
 
   const d = new Date(); d.setDate(d.getDate() + offset);
@@ -858,6 +881,21 @@ function enableLaterTouchDrag() {
   });
 }
 
+// 繰り返しタスクが指定日に該当するか（allocated=falseのものに使用）
+function isRepeatMatchDay(task, offset) {
+  if (task.repeatMode === 'daily') return true;
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  const dow = d.getDay();
+  if (task.repeatMode === 'weekday')   return dow >= 1 && dow <= 5;
+  if (task.repeatMode === 'weekend')   return dow === 0 || dow === 6;
+  if (task.repeatMode === 'custom')    return task.customDays.includes(dow);
+  if (task.repeatMode === 'month-end') {
+    const next = new Date(d); next.setDate(d.getDate() + 1);
+    return next.getDate() === 1;
+  }
+  return false;
+}
+
 function createGap(start, end, rangeStart) {
   const dur = end - start;
   if (dur < 5) return;
@@ -872,9 +910,17 @@ function createGap(start, end, rangeStart) {
   if (actualDur < 5) return;
 
   // この空き時間に収まるリストタスクを取得
-  const fittingTasks = state.tasks.filter(t =>
-    !t.allocated && t.repeatMode === 'none' && t.duration <= actualDur
-  );
+  // ① 繰り返しなし（あとでリスト）
+  // ② 繰り返しあり＆あとでリスト（allocated=false）で、当日が対象かつ未完了
+  const fittingTasks = state.tasks.filter(t => {
+    if (t.allocated) return false;           // タイムライン登録済みは除外
+    if (t.duration > actualDur) return false; // 収まらないものは除外
+    const done = t.doneDates.includes(currentDayOffset);
+    if (done) return false;                   // 今日完了済みは除外
+    if (t.repeatMode === 'none') return true; // 通常あとでタスク
+    // 繰り返し＆あとでタスク：当日が対象の曜日か確認
+    return isRepeatMatchDay(t, currentDayOffset);
+  });
 
   const gap = document.createElement('div');
   gap.className = 'free-gap';
@@ -1063,6 +1109,30 @@ function openEdit(id) {
 
 function closeEdit() { document.getElementById('editOverlay').style.display = 'none'; }
 
+// 繰り返し変更の保留データ
+let pendingRepeatChange = null;
+
+function closeRepeatConfirm() {
+  document.getElementById('repeatConfirmOverlay').style.display = 'none';
+  pendingRepeatChange = null;
+}
+
+function applyRepeatChange(mode) {
+  if (!pendingRepeatChange) return;
+  const { task, newStart } = pendingRepeatChange;
+  if (mode === 'today') {
+    if (!task.overrides) task.overrides = {};
+    task.overrides[currentDayOffset] = { start: newStart };
+  } else {
+    task.start = newStart;
+    task.overrides = {};
+  }
+  closeRepeatConfirm();
+  closeEdit();
+  saveState();
+  renderAll();
+}
+
 function saveEdit() {
   const task = state.tasks.find(t => t.id === editingTaskId);
   if (!task) return;
@@ -1077,27 +1147,18 @@ function saveEdit() {
   const newStart   = tv ? (() => { const [h,m] = tv.split(':').map(Number); return h*60+m; })() : task.start;
 
   // 繰り返しタスクの時間変更検出
-  const isRepeat       = task.repeatMode !== 'none';
-  const timeChanged    = newStart !== task.start;
+  const isRepeat        = task.repeatMode !== 'none';
+  const timeChanged     = newStart !== task.start;
   const settingsChanged = newTitle !== task.title || newDur !== task.duration || newRepeat !== task.repeatMode;
 
   if (isRepeat && timeChanged && !settingsChanged) {
-    // 時間だけ変わった場合：今回のみ or 今後すべて
-    const choice = confirm(
-      `「${task.title}」の開始時間を変更します。\n\n` +
-      `【OK】今日のみ変更\n【キャンセル】今後すべて変更`
-    );
-    if (choice) {
-      // 今日のみ：overridesに記録
-      if (!task.overrides) task.overrides = {};
-      task.overrides[currentDayOffset] = { start: newStart };
-    } else {
-      // 今後すべて
-      task.start = newStart;
-      // 過去のoverridesはクリア
-      task.overrides = {};
-    }
-    closeEdit(); saveState(); renderAll();
+    // アプリ内モーダルで確認
+    pendingRepeatChange = { task, newStart };
+    const h = Math.floor(newStart/60), m = newStart%60;
+    const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    document.getElementById('repeatConfirmMsg').textContent =
+      `「${task.title}」の開始時間を ${timeStr} に変更します。今日だけ変更しますか？それとも今後すべての日に反映しますか？`;
+    document.getElementById('repeatConfirmOverlay').style.display = 'flex';
     return;
   }
 
@@ -1110,7 +1171,6 @@ function saveEdit() {
     if (tv) task.start = newStart;
     task.allocated = true;
   }
-  // allocated未設定のタスクをgapから登録した場合
   if (!task.allocated && document.getElementById('editTimeBox').style.display !== 'none') {
     task.start     = newStart;
     task.allocated = true;
