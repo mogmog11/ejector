@@ -685,10 +685,10 @@ function renderAll() {
 }
 
 function computeColumns(tasks) {
-  // 各タスクに何列目に入るかを割り当てる（重複検出）
   const sorted = [...tasks].sort((a, b) => a.start - b.start);
-  const cols = []; // cols[i] = そのカラムの最後のend時刻
-  const result = new Map();
+  const cols = [];
+  const colMap = new Map();   // taskId -> 列番号
+  const spanMap = new Map();  // taskId -> そのタスクが属するグループの最大列数
 
   sorted.forEach(task => {
     const end = task.start + task.duration;
@@ -696,18 +696,32 @@ function computeColumns(tasks) {
     for (let c = 0; c < cols.length; c++) {
       if (cols[c] <= task.start) {
         cols[c] = end;
-        result.set(task.id, c);
+        colMap.set(task.id, c);
         placed = true;
         break;
       }
     }
     if (!placed) {
-      result.set(task.id, cols.length);
+      colMap.set(task.id, cols.length);
       cols.push(end);
     }
   });
 
-  return { colMap: result, totalCols: cols.length };
+  // 各タスクが重なるグループで何列使うかを計算
+  sorted.forEach(task => {
+    const taskStart = task.start;
+    const taskEnd   = task.start + task.duration;
+    // 同じ時間帯に重なる全タスクを探す
+    let maxCol = 0;
+    sorted.forEach(other => {
+      if (other.start < taskEnd && other.start + other.duration > taskStart) {
+        maxCol = Math.max(maxCol, colMap.get(other.id) || 0);
+      }
+    });
+    spanMap.set(task.id, maxCol + 1); // 列数 = 最大列番号+1
+  });
+
+  return { colMap, spanMap, totalCols: cols.length };
 }
 
 function getTaskStart(task, offset) {
@@ -744,27 +758,25 @@ function renderTimeline(dayTasks, range) {
   const MAX_COLS = isMobile ? 2 : 4;
 
   const tasksWithStart = dayTasks.map(t => ({ ...t, start: getTaskStart(t, currentDayOffset) }));
-  const { colMap, totalCols } = computeColumns(tasksWithStart);
-  const usedCols = Math.min(totalCols, MAX_COLS);
+  const { colMap, spanMap, totalCols } = computeColumns(tasksWithStart);
 
   dayTasks.forEach(task => {
     const done      = task.doneDates.includes(currentDayOffset);
     const isSpecial = task.title.includes('起床') || task.title.includes('就寝');
     const taskStart = getTaskStart(task, currentDayOffset);
     const col       = colMap.get(task.id) || 0;
+    const span      = spanMap.get(task.id) || 1;
     const clampCol  = Math.min(col, MAX_COLS - 1);
+    const clampSpan = Math.min(span, MAX_COLS);
 
     const el = document.createElement('div');
     el.className = `block ${done ? 'completed' : ''} ${isSpecial ? 'special' : ''}`;
-    // BLOCK_GAPを上に加えてブロック間に余白
     const topPx    = (taskStart - range.start) + BLOCK_GAP;
     const heightPx = Math.max(task.duration - BLOCK_GAP * 2, 28);
     el.style.top    = topPx + 'px';
     el.style.height = heightPx + 'px';
     el.setAttribute('data-col', clampCol);
-    el.setAttribute('data-cols', usedCols);
-    // data-startはgapの正確なtop計算用
-    el.setAttribute('data-task-end-top', (taskStart - range.start + task.duration) + '');
+    el.setAttribute('data-span', clampSpan); // グループ内の列数
 
     el.draggable = !isSpecial;
     if (!isSpecial) el.ondragstart = (e) => e.dataTransfer.setData('taskId', task.id);
@@ -780,7 +792,7 @@ function renderTimeline(dayTasks, range) {
     el.innerHTML = `
       ${cbHTML}
       <div style="flex:1; overflow:hidden; min-width:0;">
-        <div style="font-weight:700; font-size:${usedCols > 2 ? '11px' : '13px'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+        <div style="font-weight:700; font-size:${clampSpan > 2 ? '11px' : '13px'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
           ${task.title}${task.repeatMode !== 'none' ? ' <small style="opacity:0.6">🔁</small>' : ''}
         </div>
         ${showDuration ? `<div style="font-size:10px; color:var(--ink3);">${task.duration}分</div>` : ''}
@@ -811,17 +823,17 @@ function renderTimeline(dayTasks, range) {
 
 function positionBlocksByColumn() {
   const tl = document.getElementById('timeline');
-  const tlRect = tl.getBoundingClientRect();
-  const leftOffset = 65; // hour-label幅
-  const rightPad   = 15;
+  const leftOffset = 65;
+  const rightPad   = 12;
   const totalW     = tl.offsetWidth - leftOffset - rightPad;
-  const gap        = 3;
+  const colGap     = 4;
 
   tl.querySelectorAll('.block').forEach(el => {
     const col  = parseInt(el.getAttribute('data-col')  || '0');
-    const cols = parseInt(el.getAttribute('data-cols') || '1');
-    const colW = (totalW - gap * (cols - 1)) / cols;
-    el.style.left  = (leftOffset + col * (colW + gap)) + 'px';
+    const span = parseInt(el.getAttribute('data-span') || '1');
+    // このタスクが属するグループはspan列使う → 1列あたりの幅を計算
+    const colW = (totalW - colGap * (span - 1)) / span;
+    el.style.left  = (leftOffset + col * (colW + colGap)) + 'px';
     el.style.width = colW + 'px';
     el.style.right = '';
   });
@@ -921,9 +933,10 @@ function createGapPx(startMin, endMin, topPx, heightPx, rangeStart) {
 
   const gap = document.createElement('div');
   gap.className = 'free-gap';
-  // BLOCK_GAPぶん内側に収める → ブロックとの間に余白ができる
-  gap.style.top    = (topPx + BLOCK_GAP) + 'px';
-  gap.style.height = Math.max(heightPx - BLOCK_GAP * 2, 8) + 'px';
+  const gapTopPx    = topPx + BLOCK_GAP;
+  const gapHeightPx = Math.max(heightPx - BLOCK_GAP * 2, 8);
+  gap.style.top    = gapTopPx + 'px';
+  gap.style.height = gapHeightPx + 'px';
 
   const h = Math.floor(startMin / 60), m = startMin % 60;
   const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
@@ -933,22 +946,43 @@ function createGapPx(startMin, endMin, topPx, heightPx, rangeStart) {
     ? `${durH}時間${durM > 0 ? durM + '分' : ''}空き`
     : `${durM}分 空き`;
 
-  let tasksHTML = '';
-  if (fittingTasks.length > 0) {
-    tasksHTML = `<div class="gap-tasks">${fittingTasks.map(t => `
-      <div class="gap-task-chip" onclick="event.stopPropagation(); openGapTaskEdit(${t.id}, ${startMin})">
-        ＋ ${t.title}（${t.duration}分）
-      </div>`).join('')}</div>`;
-  }
+  // 高さに応じてレイアウト切り替え
+  const chipsHTML = fittingTasks.map(t => `
+    <div class="gap-task-chip" onclick="event.stopPropagation(); openGapTaskEdit(${t.id}, ${startMin})">
+      ＋ ${t.title}（${t.duration}分）
+    </div>`).join('');
 
-  gap.innerHTML = `
-    <div class="gap-header">
-      <div>
+  let inner = '';
+  if (gapHeightPx >= 60 && fittingTasks.length > 0) {
+    // 縦並び：ヘッダー上、チップ下
+    inner = `
+      <div class="gap-header">
         <div style="font-size:13px; font-weight:700;">${durStr}</div>
         <div style="font-size:11px; opacity:0.65; margin-top:1px;">${timeStr}〜</div>
       </div>
-    </div>
-    ${tasksHTML}`;
+      <div class="gap-tasks">${chipsHTML}</div>`;
+  } else if (gapHeightPx >= 28 && fittingTasks.length > 0) {
+    // 横並び：左にテキスト、右にチップ
+    inner = `
+      <div style="display:flex; align-items:center; gap:8px; padding:0 8px; height:100%; overflow:hidden;">
+        <div style="flex-shrink:0;">
+          <div style="font-size:12px; font-weight:700; color:#6b4f2e;">${durStr}</div>
+          <div style="font-size:10px; opacity:0.65; color:#6b4f2e;">${timeStr}〜</div>
+        </div>
+        <div style="display:flex; flex-wrap:nowrap; gap:4px; overflow:hidden; flex:1; justify-content:flex-end;">
+          ${chipsHTML}
+        </div>
+      </div>`;
+  } else {
+    // 極小：1行テキストのみ
+    inner = `
+      <div style="display:flex; align-items:center; height:100%; padding:0 8px; gap:6px; overflow:hidden;">
+        <div style="font-size:11px; font-weight:700; color:#6b4f2e; white-space:nowrap;">${durStr}</div>
+        ${fittingTasks.length > 0 ? `<div style="display:flex; gap:3px; overflow:hidden; flex:1; justify-content:flex-end;">${chipsHTML}</div>` : ''}
+      </div>`;
+  }
+
+  gap.innerHTML = inner;
 
   gap.ondragover  = (e) => { e.preventDefault(); gap.classList.add('drag-over'); };
   gap.ondragleave = () => gap.classList.remove('drag-over');
