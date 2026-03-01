@@ -851,10 +851,9 @@ function renderTimeline(dayTasks, range) {
 
   renderItems.forEach(item => {
     if (item.type === 'gap') {
-      // 現在時刻ラインを挿入
+      // 現在時刻ラインを挿入（gap内）
       if (!nowInserted && currentDayOffset === 0 && nowMin >= item.start && nowMin <= item.end) {
         nowInserted = true;
-        // 現在時刻より前の空き時間
         if (nowMin > item.start) appendGapRow(tl, item.start, nowMin, false);
         appendNowRow(tl);
         if (nowMin < item.end) appendGapRow(tl, nowMin, item.end, true);
@@ -864,12 +863,15 @@ function renderTimeline(dayTasks, range) {
       if (currentDayOffset === 0 && item.end <= nowMin) return;
       appendGapRow(tl, item.start, item.end, true);
     } else {
-      // 現在時刻ラインをグループ前に挿入
+      // nowMin がグループ開始前 → グループの前に now ライン
       if (!nowInserted && currentDayOffset === 0 && nowMin <= item.start) {
         nowInserted = true;
         appendNowRow(tl);
       }
-      appendGroupRow(tl, item.tasks, colMap, spanMap, MAX_COLS);
+      // nowMin がグループ内部 → タスク行にオーバーレイ now ラインを重ねる
+      const insideTask = !nowInserted && currentDayOffset === 0 && nowMin > item.start && nowMin < item.end;
+      appendGroupRow(tl, item.tasks, colMap, spanMap, MAX_COLS, insideTask);
+      if (insideTask) nowInserted = true;
     }
   });
 
@@ -960,10 +962,11 @@ function appendGapRow(tl, startMin, endMin, showChips) {
   tl.appendChild(row);
 }
 
-function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
+function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = false) {
   const row = document.createElement('div');
   row.className = 'tl-row tl-task';
   row.style.minHeight = BLOCK_MIN_H + 'px';
+  if (showNowOverlay) row.style.position = 'relative';
 
   // 最も早いタスクの開始時刻をラベルに使う
   const minStart = Math.min(...tasks.map(t => t.start));
@@ -984,6 +987,8 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
 
     const el = document.createElement('div');
     el.className = `block ${done?'completed':''} ${isSpecial?'special':''}`;
+    // タスク実行中は少し透明に
+    if (showNowOverlay) el.style.opacity = '0.72';
     el.draggable = !isSpecial;
     if (!isSpecial) el.ondragstart = e => e.dataTransfer.setData('taskId', origTask.id);
     el.onclick = () => openEdit(origTask.id);
@@ -1003,6 +1008,21 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
 
   row.appendChild(timeCol);
   row.appendChild(contentCol);
+
+  // タスク実行中：行の上端にオーバーレイ now ライン
+  if (showNowOverlay) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position:absolute; top:0; left:0; right:0;
+      display:flex; align-items:center; pointer-events:none; z-index:10;
+    `;
+    overlay.innerHTML = `
+      <div style="width:10px;height:10px;background:var(--now-line);border-radius:50%;margin-left:53px;flex-shrink:0;"></div>
+      <div style="flex:1;height:2px;background:var(--now-line);border-radius:1px;margin-left:0;"></div>
+    `;
+    row.appendChild(overlay);
+  }
+
   tl.appendChild(row);
 }
 
