@@ -1108,13 +1108,19 @@ function openGapTaskEdit(taskId, gapStart) {
 }
 
 function renderLaterList() {
-  // allocated=false のタスクすべて（繰り返しタスクも含む）
   const later = state.tasks.filter(t => !t.allocated);
   const container = document.getElementById('later-list');
 
   const repeatLabel = { daily:'毎日', weekday:'平日', weekend:'休日', 'month-end':'月末', custom:'曜日指定' };
 
-  container.innerHTML = later.map(t => {
+  // 未完了を上、完了済みを下に並べる
+  const sorted = [...later].sort((a, b) => {
+    const aDone = a.doneDates.includes(currentDayOffset) ? 1 : 0;
+    const bDone = b.doneDates.includes(currentDayOffset) ? 1 : 0;
+    return aDone - bDone;
+  });
+
+  container.innerHTML = sorted.map(t => {
     const done = t.doneDates.includes(currentDayOffset);
     const isRepeat = t.repeatMode !== 'none';
     const repeatBadge = isRepeat
