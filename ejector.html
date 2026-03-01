@@ -1252,6 +1252,13 @@ function renderLaterList() {
     if (t.allocated) return false;
     // 今日のみ削除されている場合は非表示
     if (t.deletedDates && t.deletedDates.includes(currentDayOffset)) return false;
+    // 登録日より前には表示しない
+    const created = t.createdOffset !== undefined ? t.createdOffset : -9999;
+    if (currentDayOffset < created) return false;
+    // 繰り返しタスクは曜日が一致する日のみ表示
+    if (t.repeatMode !== 'none') return isRepeatMatchDay(t, currentDayOffset);
+    // 繰り返しなしは登録日（createdOffset）のみ表示
+    if (created !== -9999) return currentDayOffset === created;
     return true;
   });
   const container = document.getElementById('later-list');
