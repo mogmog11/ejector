@@ -131,6 +131,14 @@ header {
     #f0f4f8 var(--progress, 0%)
   );
 }
+/* 完了済みでも進行中なら色を付ける（opacity:0.5で薄くなるので少し濃いめ） */
+.block.completed.in-progress {
+  background: linear-gradient(
+    to bottom,
+    rgba(45,122,79,0.28) var(--progress, 0%),
+    white var(--progress, 0%)
+  );
+}
 .block.special { border-left-color: var(--blue); background: #f0f4f8; }
 .block.completed { opacity: 0.5; filter: grayscale(0.5); }
 .task-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--green); margin-top: 2px; flex-shrink: 0; }
@@ -1039,13 +1047,16 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
     const taskStart = task.start;
     const taskEnd   = task.start + origTask.duration;
     const isInProgress = currentDayOffset === 0 && nowMin > taskStart && nowMin < taskEnd;
+    // 完了済みかつ終了時刻を過ぎている場合も100%塗る
+    const isPassedDone = currentDayOffset === 0 && done && nowMin >= taskEnd;
     const progress = isInProgress
       ? Math.round(((nowMin - taskStart) / origTask.duration) * 100)
-      : 0;
+      : isPassedDone ? 100 : 0;
+    const showProgress = isInProgress || isPassedDone;
 
     const el = document.createElement('div');
-    el.className = `block ${done?'completed':''} ${isSpecial?'special':''} ${isInProgress?'in-progress':''}`;
-    if (isInProgress) {
+    el.className = `block ${done?'completed':''} ${isSpecial?'special':''} ${showProgress?'in-progress':''}`;
+    if (showProgress) {
       el.style.setProperty('--progress', progress + '%');
     }
     el.draggable = !isSpecial;
