@@ -301,15 +301,23 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
             <label>登録先</label>
             <div style="display:flex; gap:8px;">
               <label style="flex:1; display:flex; align-items:center; gap:6px; background:white; border:1px solid var(--border); border-radius:10px; padding:10px; cursor:pointer;">
-                <input type="radio" name="taskPlacementR" value="timeline" checked onchange="document.getElementById('taskPlacement').value=this.value">
+                <input type="radio" name="taskPlacementR" value="timeline" checked onchange="document.getElementById('taskPlacement').value=this.value; document.getElementById('addTimeBox').style.display='block'">
                 <span style="font-size:13px; font-weight:700;">📅 タイムライン</span>
               </label>
               <label style="flex:1; display:flex; align-items:center; gap:6px; background:white; border:1px solid var(--border); border-radius:10px; padding:10px; cursor:pointer;">
-                <input type="radio" name="taskPlacementR" value="later" onchange="document.getElementById('taskPlacement').value=this.value">
+                <input type="radio" name="taskPlacementR" value="later" onchange="document.getElementById('taskPlacement').value=this.value; document.getElementById('addTimeBox').style.display='none'">
                 <span style="font-size:13px; font-weight:700;">📋 あとでリスト</span>
               </label>
             </div>
             <input type="hidden" id="taskPlacement" value="timeline">
+          </div>
+          <div id="addTimeBox" class="input-group" style="display:none;">
+            <label>開始時間</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select id="addTimeH" class="input-field" style="flex:1;"></select>
+              <span style="font-weight:700; font-size:16px;">:</span>
+              <select id="addTimeM" class="input-field" style="flex:1;"></select>
+            </div>
           </div>
           <button onclick="addTask()" style="width:100%; padding:14px; background:var(--green); color:white; border-radius:12px; font-weight:700; box-shadow: 0 4px 10px var(--green-dim); margin-top:8px;">追加</button>
         </div>
@@ -349,13 +357,9 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
     <div class="input-group" id="editTimeBox">
       <label>開始時間</label>
       <div style="display:flex; gap:8px; align-items:center;">
-        <select id="editTimeH" class="input-field" style="flex:1;">
-          ${Array.from({length:24},(_,i)=>`<option value="${i}">${String(i).padStart(2,'0')}</option>`).join('')}
-        </select>
+        <select id="editTimeH" class="input-field" style="flex:1;"></select>
         <span style="font-weight:700; font-size:16px;">:</span>
-        <select id="editTimeM" class="input-field" style="flex:1;">
-          ${[0,5,10,15,20,25,30,35,40,45,50,55].map(m=>`<option value="${m}">${String(m).padStart(2,'0')}</option>`).join('')}
-        </select>
+        <select id="editTimeM" class="input-field" style="flex:1;"></select>
       </div>
     </div>
     <div class="input-group">
@@ -1124,9 +1128,25 @@ function toggleRepeatUI(val, id = 'customDays') {
 }
 
 function togglePlacementUI(repeatVal) {
-  // 繰り返しありの場合のみ配置選択を表示
   const box = document.getElementById('placementBox');
-  if (box) box.style.display = repeatVal !== 'none' ? 'block' : 'none';
+  const timeBox = document.getElementById('addTimeBox');
+  if (!box) return;
+  const show = repeatVal !== 'none';
+  box.style.display = show ? 'block' : 'none';
+  // タイムラインが選択されている場合のみ開始時間を表示
+  const placement = document.getElementById('taskPlacement').value;
+  if (timeBox) timeBox.style.display = (show && placement === 'timeline') ? 'block' : 'none';
+  // デフォルトを現在時刻に設定
+  if (show && timeBox) {
+    const now = new Date();
+    const addH = document.getElementById('addTimeH');
+    const addM = document.getElementById('addTimeM');
+    if (addH) addH.value = now.getHours();
+    if (addM) {
+      const rounded = Math.round(now.getMinutes() / 5) * 5 % 60;
+      addM.value = rounded;
+    }
+  }
 }
 
 function addTask() {
@@ -1144,8 +1164,9 @@ function addTask() {
   const newTask = { id: Date.now(), title, duration: dur, allocated: false, repeatMode, customDays, doneDates: [] };
 
   if (repeatMode !== 'none' && placement === 'timeline') {
-    // 繰り返し × タイムライン → 従来通り
-    newTask.allocated = true; newTask.start = 480;
+    const ah = parseInt(document.getElementById('addTimeH')?.value) || 8;
+    const am = parseInt(document.getElementById('addTimeM')?.value) || 0;
+    newTask.allocated = true; newTask.start = ah * 60 + am;
   } else if (repeatMode !== 'none' && placement === 'later') {
     // 繰り返し × あとで → allocated=false のまま（終日タスクとしてリストに常駐）
     newTask.allocated = false;
@@ -1156,6 +1177,9 @@ function addTask() {
   document.getElementById('taskTitle').value = '';
   document.getElementById('taskRepeatMode').value = 'none';
   document.getElementById('taskPlacement').value = 'timeline';
+  // timeline ラジオをデフォルトに戻す
+  const tlRadio = document.querySelector('input[name="taskPlacementR"][value="timeline"]');
+  if (tlRadio) tlRadio.checked = true;
   toggleRepeatUI('none');
   togglePlacementUI('none');
 
@@ -1324,10 +1348,38 @@ function updateClock() {
 //  INIT
 // ══════════════════════════════════════════════
 window.onload = async () => {
+  // 時間セレクトを動的生成
+  const selH = document.getElementById('editTimeH');
+  const selM = document.getElementById('editTimeM');
+  for (let i = 0; i < 24; i++) {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = String(i).padStart(2,'0');
+    selH.appendChild(o);
+  }
+  [0,5,10,15,20,25,30,35,40,45,50,55].forEach(m => {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = String(m).padStart(2,'0');
+    selM.appendChild(o);
+  });
+  // 追加フォームの開始時間セレクトも生成
+  const addH = document.getElementById('addTimeH');
+  const addM = document.getElementById('addTimeM');
+  if (addH && addM) {
+    for (let i = 0; i < 24; i++) {
+      const o = document.createElement('option');
+      o.value = i; o.textContent = String(i).padStart(2,'0');
+      addH.appendChild(o);
+    }
+    [0,5,10,15,20,25,30,35,40,45,50,55].forEach(m => {
+      const o = document.createElement('option');
+      o.value = m; o.textContent = String(m).padStart(2,'0');
+      addM.appendChild(o);
+    });
+  }
+
   loadFromLocal();
   loadSyncConfig();
 
-  // 起動時に同期設定があれば取得
   if (syncCfg.workerUrl) {
     showSyncStatus('syncing');
     await pullFromBin();
