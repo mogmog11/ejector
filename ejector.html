@@ -864,6 +864,13 @@ function appendNowRow(tl) {
 }
 
 function appendGapRow(tl, startMin, endMin, showChips) {
+  // 今日かつ完全に過去の空き時間は描画しない（スマホ含む全環境で確実にガード）
+  if (currentDayOffset === 0) {
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    if (endMin <= nowMin) return;        // 完全に過去 → スキップ
+    if (startMin < nowMin) startMin = nowMin; // 途中から始まる場合は現在時刻に切り詰め
+  }
+
   const dur = endMin - startMin;
   if (dur < 3) return;
 
