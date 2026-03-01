@@ -115,6 +115,21 @@ header {
   box-shadow: 0 2px 5px rgba(0,0,0,0.06);
   display: flex; align-items: flex-start; gap: 8px;
   cursor: pointer; overflow: hidden; min-width: 0;
+  position: relative;
+}
+.block.in-progress {
+  background: linear-gradient(
+    to bottom,
+    rgba(45,122,79,0.13) var(--progress, 0%),
+    white var(--progress, 0%)
+  );
+}
+.block.special.in-progress {
+  background: linear-gradient(
+    to bottom,
+    rgba(52,73,94,0.13) var(--progress, 0%),
+    #f0f4f8 var(--progress, 0%)
+  );
 }
 .block.special { border-left-color: var(--blue); background: #f0f4f8; }
 .block.completed { opacity: 0.5; filter: grayscale(0.5); }
@@ -868,10 +883,11 @@ function renderTimeline(dayTasks, range) {
         nowInserted = true;
         appendNowRow(tl);
       }
-      // nowMin がグループ内部 → タスク行にオーバーレイ now ラインを重ねる
-      const insideTask = !nowInserted && currentDayOffset === 0 && nowMin > item.start && nowMin < item.end;
-      appendGroupRow(tl, item.tasks, colMap, spanMap, MAX_COLS, insideTask);
-      if (insideTask) nowInserted = true;
+      // nowMin がグループ内部 → プログレス背景で表現するので now ラインは挿入しない
+      if (!nowInserted && currentDayOffset === 0 && nowMin > item.start && nowMin < item.end) {
+        nowInserted = true; // ライン挿入はスキップ、プログレスで代替
+      }
+      appendGroupRow(tl, item.tasks, colMap, spanMap, MAX_COLS);
     }
   });
 
@@ -966,9 +982,7 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
   const row = document.createElement('div');
   row.className = 'tl-row tl-task';
   row.style.minHeight = BLOCK_MIN_H + 'px';
-  if (showNowOverlay) row.style.position = 'relative';
 
-  // 最も早いタスクの開始時刻をラベルに使う
   const minStart = Math.min(...tasks.map(t => t.start));
   const h = Math.floor(minStart/60), m = minStart%60;
   const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
@@ -977,7 +991,8 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
   const contentCol = document.createElement('div');
   contentCol.className = 'tl-content-col';
 
-  // 列順にソートして配置
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+
   const sorted = [...tasks].sort((a,b) => (colMap.get(a.id)||0) - (colMap.get(b.id)||0));
   sorted.forEach(task => {
     const origTask = state.tasks.find(t => t.id === task.id);
@@ -985,10 +1000,19 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
     const done      = origTask.doneDates.includes(currentDayOffset);
     const isSpecial = origTask.title.includes('起床') || origTask.title.includes('就寝');
 
+    // 進行中かどうかを判定してプログレスを計算
+    const taskStart = task.start;
+    const taskEnd   = task.start + origTask.duration;
+    const isInProgress = currentDayOffset === 0 && nowMin > taskStart && nowMin < taskEnd;
+    const progress = isInProgress
+      ? Math.round(((nowMin - taskStart) / origTask.duration) * 100)
+      : 0;
+
     const el = document.createElement('div');
-    el.className = `block ${done?'completed':''} ${isSpecial?'special':''}`;
-    // タスク実行中は少し透明に
-    if (showNowOverlay) el.style.opacity = '0.72';
+    el.className = `block ${done?'completed':''} ${isSpecial?'special':''} ${isInProgress?'in-progress':''}`;
+    if (isInProgress) {
+      el.style.setProperty('--progress', progress + '%');
+    }
     el.draggable = !isSpecial;
     if (!isSpecial) el.ondragstart = e => e.dataTransfer.setData('taskId', origTask.id);
     el.onclick = () => openEdit(origTask.id);
@@ -1008,21 +1032,6 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
 
   row.appendChild(timeCol);
   row.appendChild(contentCol);
-
-  // タスク実行中：行の上端にオーバーレイ now ライン
-  if (showNowOverlay) {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-      position:absolute; top:0; left:0; right:0;
-      display:flex; align-items:center; pointer-events:none; z-index:10;
-    `;
-    overlay.innerHTML = `
-      <div style="width:10px;height:10px;background:var(--now-line);border-radius:50%;margin-left:53px;flex-shrink:0;"></div>
-      <div style="flex:1;height:2px;background:var(--now-line);border-radius:1px;margin-left:0;"></div>
-    `;
-    row.appendChild(overlay);
-  }
-
   tl.appendChild(row);
 }
 
@@ -1397,8 +1406,21 @@ function startAutoSync() {
   }, 30000);
 }
 
+let _lastMinute = -1;
 function updateClock() {
-  document.getElementById('clock').textContent = new Date().toTimeString().split(' ')[0];
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toTimeString().split(' ')[0];
+  // 1分ごとにプログレス再描画
+  const min = now.getHours() * 60 + now.getMinutes();
+  if (min !== _lastMinute) {
+    _lastMinute = min;
+    // 進行中ブロックのプログレスを更新
+    document.querySelectorAll('.block.in-progress').forEach(el => {
+      const pct = parseFloat(el.style.getPropertyValue('--progress')) || 0;
+      // 簡易更新：再renderAllは重いので1%加算で近似
+      el.style.setProperty('--progress', Math.min(pct + 1, 100) + '%');
+    });
+  }
 }
 
 // ══════════════════════════════════════════════
