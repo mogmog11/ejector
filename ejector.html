@@ -1538,8 +1538,8 @@ function deleteTask() {
     // 繰り返しタスク → 確認モーダル
     document.getElementById('deleteConfirmMsg').textContent =
       `「${task.title}」は繰り返しタスクです。今日のみ削除しますか？それともすべての日から削除しますか？`;
-    // 今日のみ削除ボタン（あとでリストのタスクには不要なので非表示）
-    document.getElementById('deleteTodayBtn').style.display = task.allocated ? 'block' : 'none';
+    // 繰り返しタスクは常に「今日のみ削除」を表示
+    document.getElementById('deleteTodayBtn').style.display = 'block';
     document.getElementById('deleteConfirmOverlay').style.display = 'flex';
   } else {
     // 通常タスク → 即削除
