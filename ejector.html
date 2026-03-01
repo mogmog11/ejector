@@ -288,6 +288,10 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 .week-day-btn.active.sun .day-num,
 .week-day-btn.active.sat .wday-label,
 .week-day-btn.active.sat .day-num { color: var(--green); }
+
+/* スマホ版 weekNav（PC では非表示） */
+#weekNavMobile { display: none; }
+
 #tabNav {
   display: none; height: var(--nav-h); background: white; border-top: 1px solid var(--border);
   justify-content: space-around; align-items: center; z-index: 1000;
@@ -313,16 +317,17 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 
 /* ─── MEDIA QUERIES ─── */
 @media (max-width: 768px) {
-  header { flex-wrap: wrap; height: auto; padding: 8px 12px 0; gap: 4px; }
-  #clock { order: 1; }
+  header { height: var(--header-h); padding: 0 12px; flex-wrap: nowrap; }
   #currentDateDisplay { display: none !important; }
-  #weekNav {
-    order: 3; width: 100%;
-    border-top: 1px solid var(--border);
-    padding: 4px 0; margin: 4px -12px 0; width: calc(100% + 24px);
-    background: var(--surface);
+  /* ヘッダー内のweekNavを非表示にしてスマホ用を使う */
+  #weekNav { display: none !important; }
+  #weekNavMobile {
+    display: flex; align-items: center;
+    height: 52px; padding: 0 4px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0;
   }
-  .week-today-btn { margin-left: 8px; }
+  #weekNavMobile .week-days { flex: 1; display: flex; overflow: hidden; }
 
   #rpanel { display: none; }
   #tabNav { display: flex; }
@@ -353,7 +358,7 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 <div id="app">
   <header>
     <div id="clock">00:00:00</div>
-    <!-- 今週ナビ（PC: ヘッダー内、スマホ: 別行） -->
+    <!-- PC版: weekNav をヘッダー内インライン表示 -->
     <div id="weekNav">
       <button class="week-today-btn" onclick="goToday()">今日</button>
       <button class="week-arrow" onclick="changeDate(-1)">‹</button>
@@ -366,6 +371,14 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
       <button id="syncBtn" onclick="openSyncSettings()" title="データ同期設定">☁</button>
     </div>
   </header>
+
+  <!-- スマホ版: weekNav を別行に（CSSで制御） -->
+  <div id="weekNavMobile">
+    <button class="week-today-btn" onclick="goToday()">今日</button>
+    <button class="week-arrow" onclick="changeDate(-1)">‹</button>
+    <div class="week-days" id="weekDaysMobile"></div>
+    <button class="week-arrow" onclick="changeDate(1)">›</button>
+  </div>
 
   <div id="container">
     <div id="main">
@@ -1609,28 +1622,30 @@ function goToday() { currentDayOffset = 0; renderAll(); }
 function goOffset(offset) { currentDayOffset = offset; renderAll(); }
 
 function renderWeekNav() {
-  const container = document.getElementById('weekDays');
-  container.innerHTML = '';
-  const today = new Date();
-  // 現在日を中心に前3〜後3（計7日）
-  for (let i = currentDayOffset - 3; i <= currentDayOffset + 3; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const dow = d.getDay();
-    const isToday  = i === 0;
-    const isActive = i === currentDayOffset;
+  ['weekDays', 'weekDaysMobile'].forEach(containerId => {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    const today = new Date();
+    for (let i = currentDayOffset - 3; i <= currentDayOffset + 3; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const dow = d.getDay();
+      const isToday  = i === 0;
+      const isActive = i === currentDayOffset;
 
-    const btn = document.createElement('button');
-    let cls = 'week-day-btn';
-    if (isActive) cls += ' active';
-    else if (isToday) cls += ' today-marker';
-    if (dow === 0) cls += ' sun';
-    if (dow === 6) cls += ' sat';
-    btn.className = cls;
-    btn.innerHTML = `<span class="wday-label">${['日','月','火','水','木','金','土'][dow]}</span><span class="day-num">${d.getDate()}</span>`;
-    btn.onclick   = () => goOffset(i);
-    container.appendChild(btn);
-  }
+      const btn = document.createElement('button');
+      let cls = 'week-day-btn';
+      if (isActive) cls += ' active';
+      else if (isToday) cls += ' today-marker';
+      if (dow === 0) cls += ' sun';
+      if (dow === 6) cls += ' sat';
+      btn.className = cls;
+      btn.innerHTML = `<span class="wday-label">${['日','月','火','水','木','金','土'][dow]}</span><span class="day-num">${d.getDate()}</span>`;
+      btn.onclick   = () => goOffset(i);
+      container.appendChild(btn);
+    }
+  });
 }
 
 function updateDateDisplay() {
