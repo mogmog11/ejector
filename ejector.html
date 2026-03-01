@@ -1479,10 +1479,23 @@ document.addEventListener('visibilitychange', () => {
 
 // Service Worker 登録（PWA対応）
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(r => console.log('SW registered'))
-      .catch(e => console.log('SW error', e));
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('./sw.js');
+      // 起動のたびに更新チェックを強制
+      await reg.update();
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            // 新しいSWが入ったらページをリロード
+            window.location.reload();
+          }
+        });
+      });
+    } catch(e) {
+      console.log('SW error', e);
+    }
   });
 }
 </script>
