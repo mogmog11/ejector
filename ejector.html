@@ -64,25 +64,44 @@ header {
 .spin { display: inline-block; animation: spin 1s linear infinite; }
 
 /* ─── TIMELINE ─── */
-/* height はJSで動的設定 */
 #tlWrap { flex: 1; overflow-y: auto; position: relative; scroll-behavior: smooth; }
 .timeline {
-  position: relative; padding: 8px 15px 30px 55px;
-  background-image: linear-gradient(var(--border) 1px, transparent 1px);
-  background-size: 100% 60px; min-height: 120px;
+  display: flex; flex-direction: column;
+  padding: 8px 12px 40px 0;
+  min-height: 100%;
 }
-.hour-label { position: absolute; left: 8px; transform: translateY(-50%); font-size: 11px; color: var(--ink3); font-weight: 500; }
-#nowLine { position: absolute; left: 0; right: 0; height: 2px; background: var(--now-line); z-index: 50; pointer-events: none; }
-#nowLine::after { content: ''; position: absolute; left: 0; top: -4px; width: 10px; height: 10px; background: var(--now-line); border-radius: 50%; }
+/* 各行：時間ラベル + コンテンツ */
+.tl-row {
+  display: flex; align-items: stretch; min-height: 0;
+  position: relative;
+}
+.tl-row.tl-task   { min-height: 56px; }
+.tl-row.tl-gap    { min-height: 64px; }
+/* 左カラム：時間ラベル＋縦線 */
+.tl-time-col {
+  width: 58px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: flex-end;
+  padding-right: 8px; position: relative;
+}
+.tl-time-label {
+  font-size: 11px; color: var(--ink3); font-weight: 500;
+  margin-top: -6px; white-space: nowrap;
+}
+.tl-vline {
+  flex: 1; width: 2px; background: var(--border);
+  margin: 4px auto 0; border-radius: 1px;
+}
+/* 右カラム：ブロック/ギャップ */
+.tl-content-col { flex: 1; padding: 3px 0 3px 4px; display: flex; gap: 4px; }
 
-/* ─── BLOCKS & GAPS ─── */
+/* ─── BLOCKS & GAPS (flow) ─── */
 .block {
-  position: absolute; left: 65px; right: 15px; background: white;
+  flex: 1; background: white;
   border: 1px solid var(--border); border-left: 5px solid var(--green);
   border-radius: 10px; padding: 10px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.06); z-index: 20;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.06);
   display: flex; align-items: flex-start; gap: 8px;
-  cursor: pointer; overflow: hidden;
+  cursor: pointer; overflow: hidden; min-width: 0;
 }
 .block.special { border-left-color: var(--blue); background: #f0f4f8; }
 .block.completed { opacity: 0.5; filter: grayscale(0.5); }
@@ -90,30 +109,41 @@ header {
 
 /* ─── FREE GAP ─── */
 .free-gap {
-  position: absolute; left: 65px; right: 15px;
+  flex: 1;
   background: #f5efe6;
   border: 1px solid #c8b89a;
   border-left: 5px solid #a07850;
   border-radius: 10px;
-  color: #6b4f2e; z-index: 10;
+  color: #6b4f2e;
   transition: background 0.2s;
   box-shadow: 0 2px 5px rgba(0,0,0,0.06);
-  overflow: hidden;
+  overflow: hidden; display: flex; align-items: center;
 }
-.free-gap.drag-over {
-  background: #ede0ce;
-  border-color: #a07850;
+.free-gap.drag-over { background: #ede0ce; border-color: #a07850; }
+/* Now line for flow layout */
+.tl-now-row {
+  display: flex; align-items: center;
+  position: relative; margin: 0;
+}
+.tl-now-line {
+  height: 2px; background: var(--now-line);
+  flex: 1; border-radius: 1px; margin-left: 58px;
+}
+.tl-now-dot {
+  width: 10px; height: 10px; background: var(--now-line);
+  border-radius: 50%; margin-left: 54px; flex-shrink: 0;
+  position: absolute; left: 0; top: -4px;
 }
 .gap-header {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 10px 4px;
+  display: flex; flex-direction: column;
+  padding: 10px 12px 6px;
   font-size: 13px; font-weight: 700; color: #6b4f2e;
 }
 .gap-header::before {
   content: none;
 }
 .gap-tasks {
-  padding: 0 8px 8px; display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 0 10px 10px; display: flex; flex-wrap: wrap; gap: 6px;
 }
 .gap-task-chip {
   background: white !important;
@@ -318,7 +348,15 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
     </div>
     <div class="input-group" id="editTimeBox">
       <label>開始時間</label>
-      <input type="time" id="editTime" class="input-field">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <select id="editTimeH" class="input-field" style="flex:1;">
+          ${Array.from({length:24},(_,i)=>`<option value="${i}">${String(i).padStart(2,'0')}</option>`).join('')}
+        </select>
+        <span style="font-weight:700; font-size:16px;">:</span>
+        <select id="editTimeM" class="input-field" style="flex:1;">
+          ${[0,5,10,15,20,25,30,35,40,45,50,55].map(m=>`<option value="${m}">${String(m).padStart(2,'0')}</option>`).join('')}
+        </select>
+      </div>
     </div>
     <div class="input-group">
       <label>所要時間 (分)</label>
@@ -632,11 +670,16 @@ function disconnectSync() {
 //  LOGIC
 // ══════════════════════════════════════════════
 function isTaskForToday(task, offset) {
-  // あとでリストの繰り返しタスク（allocated=false）はタイムラインに乗せない
   if (!task.allocated) return false;
-  if (task.repeatMode === 'none') return true; // allocated=true & no-repeat → show
 
-  // 繰り返しタスク（allocated=true）の曜日チェック
+  if (task.repeatMode === 'none') {
+    // 繰り返しなしタスクは allocatedOffset が一致する日のみ表示
+    // allocatedOffset が未設定（旧データ）は offset=0 扱い
+    const ao = task.allocatedOffset !== undefined ? task.allocatedOffset : 0;
+    return ao === offset;
+  }
+
+  // 繰り返しタスクの曜日チェック
   if (task.repeatMode === 'daily') return true;
 
   const d = new Date(); d.setDate(d.getDate() + offset);
@@ -672,13 +715,17 @@ function renderAll() {
   renderTimeline(dayTasks, currentRange);
   renderLaterList();
   updateDateDisplay();
-  updateNowLine();
 
   const tw = document.getElementById('tlWrap');
   if (currentDayOffset === 0) {
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    tw.scrollTop = Math.max(0, nowMin - currentRange.start - 150);
+    // 描画後に現在時刻行へスクロール
+    requestAnimationFrame(() => {
+      const nowRow = tw.querySelector('.tl-now-row');
+      if (nowRow) {
+        const offset = nowRow.offsetTop - tw.clientHeight / 3;
+        tw.scrollTop = Math.max(0, offset);
+      }
+    });
   } else {
     tw.scrollTop = 0;
   }
@@ -731,26 +778,12 @@ function getTaskStart(task, offset) {
   return task.start;
 }
 
-const BLOCK_GAP = 4; // タスク間の余白px（上下）
+const BLOCK_MIN_H = 52; // タスク行の最小高さpx
+const GAP_MIN_H   = 36; // 空き時間行の最小高さpx
 
 function renderTimeline(dayTasks, range) {
   const tl = document.getElementById('timeline');
-  tl.innerHTML = '<div id="nowLine"></div>';
-
-  tl.style.height = (range.end - range.start) + 'px';
-  tl.style.backgroundPositionY = (range.start % 60) + 'px';
-
-  // 時間ラベル
-  for (let i = 0; i <= 24; i++) {
-    const min = i * 60;
-    if (min >= range.start && min <= range.end) {
-      const label = document.createElement('div');
-      label.className = 'hour-label';
-      label.style.top = (min - range.start) + 'px';
-      label.textContent = `${String(i).padStart(2, '0')}:00`;
-      tl.appendChild(label);
-    }
-  }
+  tl.innerHTML = '';
 
   dayTasks.sort((a, b) => getTaskStart(a, currentDayOffset) - getTaskStart(b, currentDayOffset));
 
@@ -758,86 +791,203 @@ function renderTimeline(dayTasks, range) {
   const MAX_COLS = isMobile ? 2 : 4;
 
   const tasksWithStart = dayTasks.map(t => ({ ...t, start: getTaskStart(t, currentDayOffset) }));
-  const { colMap, spanMap, totalCols } = computeColumns(tasksWithStart);
+  const { colMap, spanMap } = computeColumns(tasksWithStart);
 
-  dayTasks.forEach(task => {
-    const done      = task.doneDates.includes(currentDayOffset);
-    const isSpecial = task.title.includes('起床') || task.title.includes('就寝');
-    const taskStart = getTaskStart(task, currentDayOffset);
-    const col       = colMap.get(task.id) || 0;
-    const span      = spanMap.get(task.id) || 1;
-    const clampCol  = Math.min(col, MAX_COLS - 1);
-    const clampSpan = Math.min(span, MAX_COLS);
+  // グループ化：同じ開始時刻or重なりタスクをまとめる
+  // 重複しないシーケンシャルなイベント列を構築
+  let cursor = range.start;
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  let nowInserted = false;
+
+  // タスクをstart順に並べ、gap→taskの繰り返し
+  const events = []; // {type:'task'|'gap', ...}
+  let lastEnd = range.start;
+
+  // まずグループ（同時間帯に重なるタスク群）を作る
+  const groups = [];
+  let i = 0;
+  const sorted = [...tasksWithStart].sort((a,b) => a.start - b.start);
+  while (i < sorted.length) {
+    const grp = [sorted[i]];
+    let grpEnd = sorted[i].start + sorted[i].duration;
+    i++;
+    while (i < sorted.length && sorted[i].start < grpEnd) {
+      grpEnd = Math.max(grpEnd, sorted[i].start + sorted[i].duration);
+      grp.push(sorted[i]);
+      i++;
+    }
+    groups.push({ tasks: grp, start: grp[0].start, end: grpEnd });
+  }
+
+  // gap → group → gap … の順で描画
+  let pos = range.start;
+  const renderItems = [];
+  groups.forEach(grp => {
+    if (grp.start > pos) renderItems.push({ type: 'gap', start: pos, end: grp.start });
+    renderItems.push({ type: 'group', ...grp });
+    pos = grp.end;
+  });
+  if (pos < range.end) renderItems.push({ type: 'gap', start: pos, end: range.end });
+
+  renderItems.forEach(item => {
+    if (item.type === 'gap') {
+      // 現在時刻ラインを挿入
+      if (!nowInserted && currentDayOffset === 0 && nowMin >= item.start && nowMin <= item.end) {
+        nowInserted = true;
+        // 現在時刻より前の空き時間
+        if (nowMin > item.start) appendGapRow(tl, item.start, nowMin, false);
+        appendNowRow(tl);
+        if (nowMin < item.end) appendGapRow(tl, nowMin, item.end, true);
+        return;
+      }
+      // 過去の空き時間（今日かつ終了が現在時刻以前）
+      if (currentDayOffset === 0 && item.end <= nowMin) return;
+      appendGapRow(tl, item.start, item.end, true);
+    } else {
+      // 現在時刻ラインをグループ前に挿入
+      if (!nowInserted && currentDayOffset === 0 && nowMin <= item.start) {
+        nowInserted = true;
+        appendNowRow(tl);
+      }
+      appendGroupRow(tl, item.tasks, colMap, spanMap, MAX_COLS);
+    }
+  });
+
+  if (!nowInserted && currentDayOffset === 0) appendNowRow(tl);
+}
+
+function appendNowRow(tl) {
+  const row = document.createElement('div');
+  row.className = 'tl-now-row';
+  row.innerHTML = `<div class="tl-now-line"></div>`;
+  tl.appendChild(row);
+}
+
+function appendGapRow(tl, startMin, endMin, showChips) {
+  const dur = endMin - startMin;
+  if (dur < 3) return;
+
+  const actualDur = endMin - startMin;
+  const fittingTasks = showChips ? state.tasks.filter(t => {
+    if (t.allocated) return false;
+    if (t.duration > actualDur) return false;
+    if (t.doneDates.includes(currentDayOffset)) return false;
+    if (t.repeatMode === 'none') return true;
+    return isRepeatMatchDay(t, currentDayOffset);
+  }) : [];
+
+  const h = Math.floor(startMin/60), m = startMin%60;
+  const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  const durH = Math.floor(dur/60), durM = dur%60;
+  const durStr = durH > 0 ? `${durH}時間${durM>0?durM+'分':''}空き` : `${durM}分 空き`;
+
+  const chipsHTML = fittingTasks.map(t =>
+    `<div class="gap-task-chip" onclick="event.stopPropagation();openGapTaskEdit(${t.id},${startMin})">＋ ${t.title}（${t.duration}分）</div>`
+  ).join('');
+
+  const row = document.createElement('div');
+  row.className = 'tl-row tl-gap';
+  row.style.minHeight = GAP_MIN_H + 'px';
+
+  const gap = document.createElement('div');
+  gap.className = 'free-gap';
+  gap.style.flex = '1';
+
+  if (fittingTasks.length > 0) {
+    gap.style.flexDirection = 'column';
+    gap.style.alignItems = 'flex-start';
+    gap.innerHTML = `
+      <div class="gap-header">
+        <div style="font-size:14px;font-weight:700;">${durStr}</div>
+        <div style="font-size:12px;opacity:.65;margin-top:2px;">${timeStr}〜</div>
+      </div>
+      <div class="gap-tasks">${chipsHTML}</div>`;
+  } else {
+    gap.style.flexDirection = 'column';
+    gap.style.alignItems = 'flex-start';
+    gap.innerHTML = `
+      <div class="gap-header">
+        <div style="font-size:14px;font-weight:700;">${durStr}</div>
+        <div style="font-size:12px;opacity:.65;margin-top:2px;">${timeStr}〜</div>
+      </div>`;
+  }
+
+  gap.ondragover  = e => { e.preventDefault(); gap.classList.add('drag-over'); };
+  gap.ondragleave = () => gap.classList.remove('drag-over');
+  gap.ondrop = e => {
+    e.preventDefault(); gap.classList.remove('drag-over');
+    const task = state.tasks.find(t => t.id == e.dataTransfer.getData('taskId'));
+    if (task) {
+      task.start = startMin; task.allocated = true;
+      if (task.repeatMode === 'none') task.allocatedOffset = currentDayOffset;
+      saveState(); renderAll();
+    }
+  };
+
+  const timeCol = makeTimeCol(timeStr);
+  const contentCol = document.createElement('div');
+  contentCol.className = 'tl-content-col';
+  contentCol.appendChild(gap);
+  row.appendChild(timeCol);
+  row.appendChild(contentCol);
+  tl.appendChild(row);
+}
+
+function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
+  const row = document.createElement('div');
+  row.className = 'tl-row tl-task';
+  row.style.minHeight = BLOCK_MIN_H + 'px';
+
+  // 最も早いタスクの開始時刻をラベルに使う
+  const minStart = Math.min(...tasks.map(t => t.start));
+  const h = Math.floor(minStart/60), m = minStart%60;
+  const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+
+  const timeCol = makeTimeCol(timeStr);
+  const contentCol = document.createElement('div');
+  contentCol.className = 'tl-content-col';
+
+  // 列順にソートして配置
+  const sorted = [...tasks].sort((a,b) => (colMap.get(a.id)||0) - (colMap.get(b.id)||0));
+  sorted.forEach(task => {
+    const origTask = state.tasks.find(t => t.id === task.id);
+    if (!origTask) return;
+    const done      = origTask.doneDates.includes(currentDayOffset);
+    const isSpecial = origTask.title.includes('起床') || origTask.title.includes('就寝');
 
     const el = document.createElement('div');
-    el.className = `block ${done ? 'completed' : ''} ${isSpecial ? 'special' : ''}`;
-    const topPx    = (taskStart - range.start) + BLOCK_GAP;
-    const heightPx = Math.max(task.duration - BLOCK_GAP * 2, 28);
-    el.style.top    = topPx + 'px';
-    el.style.height = heightPx + 'px';
-    el.setAttribute('data-col', clampCol);
-    el.setAttribute('data-span', clampSpan); // グループ内の列数
-
+    el.className = `block ${done?'completed':''} ${isSpecial?'special':''}`;
     el.draggable = !isSpecial;
-    if (!isSpecial) el.ondragstart = (e) => e.dataTransfer.setData('taskId', task.id);
-    el.onclick = () => openEdit(task.id);
-    if (!isSpecial) el.addEventListener('touchstart', onTouchStart, { passive: true });
+    if (!isSpecial) el.ondragstart = e => e.dataTransfer.setData('taskId', origTask.id);
+    el.onclick = () => openEdit(origTask.id);
 
-    const cbHTML = isSpecial
-      ? ''
-      : `<input type="checkbox" class="task-checkbox" ${done ? 'checked' : ''} onclick="event.stopPropagation(); toggleDone(${task.id})">`;
+    const cbHTML = isSpecial ? '' :
+      `<input type="checkbox" class="task-checkbox" ${done?'checked':''} onclick="event.stopPropagation();toggleDone(${origTask.id})">`;
 
-    const showDuration = heightPx >= 44;
-
-    el.innerHTML = `
-      ${cbHTML}
-      <div style="flex:1; overflow:hidden; min-width:0;">
-        <div style="font-weight:700; font-size:${clampSpan > 2 ? '11px' : '13px'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-          ${task.title}${task.repeatMode !== 'none' ? ' <small style="opacity:0.6">🔁</small>' : ''}
+    el.innerHTML = `${cbHTML}
+      <div style="flex:1;overflow:hidden;min-width:0;">
+        <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${origTask.title}${origTask.repeatMode!=='none'?' <small style="opacity:0.6">🔁</small>':''}
         </div>
-        ${showDuration ? `<div style="font-size:10px; color:var(--ink3);">${task.duration}分</div>` : ''}
+        <div style="font-size:11px;color:var(--ink3);">${origTask.duration}分</div>
       </div>`;
-    tl.appendChild(el);
+    contentCol.appendChild(el);
   });
 
-  positionBlocksByColumn();
-
-  // 空き時間：ブロックの外側（BLOCK_GAP込み）にぴったり合わせる
-  // gapのtop = lastBlockEnd（分）- range.start
-  // gapのheight = 次のブロックstart（分）- lastBlockEnd（分）
-  let lastEnd = range.start;
-  dayTasks.forEach(task => {
-    const ts = getTaskStart(task, currentDayOffset);
-    if (ts > lastEnd) {
-      // gap: lastEnd〜ts（分単位）
-      const gapTopPx = (lastEnd - range.start);
-      const gapH     = ts - lastEnd;
-      createGapPx(lastEnd, ts, gapTopPx, gapH, range.start);
-    }
-    lastEnd = Math.max(lastEnd, ts + task.duration);
-  });
-  if (lastEnd < range.end) {
-    createGapPx(lastEnd, range.end, lastEnd - range.start, range.end - lastEnd, range.start);
-  }
+  row.appendChild(timeCol);
+  row.appendChild(contentCol);
+  tl.appendChild(row);
 }
 
-function positionBlocksByColumn() {
-  const tl = document.getElementById('timeline');
-  const leftOffset = 65;
-  const rightPad   = 12;
-  const totalW     = tl.offsetWidth - leftOffset - rightPad;
-  const colGap     = 4;
-
-  tl.querySelectorAll('.block').forEach(el => {
-    const col  = parseInt(el.getAttribute('data-col')  || '0');
-    const span = parseInt(el.getAttribute('data-span') || '1');
-    // このタスクが属するグループはspan列使う → 1列あたりの幅を計算
-    const colW = (totalW - colGap * (span - 1)) / span;
-    el.style.left  = (leftOffset + col * (colW + colGap)) + 'px';
-    el.style.width = colW + 'px';
-    el.style.right = '';
-  });
+function makeTimeCol(timeStr) {
+  const col = document.createElement('div');
+  col.className = 'tl-time-col';
+  col.innerHTML = `<div class="tl-time-label">${timeStr}</div><div class="tl-vline"></div>`;
+  return col;
 }
+
+// 使わなくなった関数（互換のため残す）
+function positionBlocksByColumn() {}
 
 // ──── タッチドラッグ（スマホでリストからタイムラインへ） ────
 let touchDragTaskId = null;
@@ -883,7 +1033,11 @@ function enableLaterTouchDrag() {
       const topPx  = parseInt(gap.style.top);
       const start  = currentRange.start + topPx;
       const task   = state.tasks.find(tk => tk.id === touchDragTaskId);
-      if (task) { task.start = start; task.allocated = true; saveState(); renderAll(); }
+      if (task) {
+        task.start = start; task.allocated = true;
+        if (task.repeatMode === 'none') task.allocatedOffset = currentDayOffset;
+        saveState(); renderAll();
+      }
     }
     document.querySelectorAll('.free-gap').forEach(g => g.classList.remove('drag-over'));
     touchDragTaskId = null;
@@ -906,94 +1060,6 @@ function isRepeatMatchDay(task, offset) {
 
 // startMin/endMin: 分単位の開始・終了
 // topPx/heightPx: absolute配置のpx値
-function createGapPx(startMin, endMin, topPx, heightPx, rangeStart) {
-  // 今日の場合、現在時刻より前はカット
-  if (currentDayOffset === 0) {
-    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-    if (endMin <= nowMin) return;
-    if (startMin < nowMin) {
-      const cutPx = nowMin - startMin;
-      topPx    += cutPx;
-      heightPx -= cutPx;
-      startMin  = nowMin;
-    }
-  }
-  if (heightPx < 5) return;
-
-  const actualDur = endMin - startMin;
-
-  const fittingTasks = state.tasks.filter(t => {
-    if (t.allocated) return false;
-    if (t.duration > actualDur) return false;
-    const done = t.doneDates.includes(currentDayOffset);
-    if (done) return false;
-    if (t.repeatMode === 'none') return true;
-    return isRepeatMatchDay(t, currentDayOffset);
-  });
-
-  const gap = document.createElement('div');
-  gap.className = 'free-gap';
-  const gapTopPx    = topPx + BLOCK_GAP;
-  const gapHeightPx = Math.max(heightPx - BLOCK_GAP * 2, 8);
-  gap.style.top    = gapTopPx + 'px';
-  gap.style.height = gapHeightPx + 'px';
-
-  const h = Math.floor(startMin / 60), m = startMin % 60;
-  const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-  const durH = Math.floor(actualDur / 60);
-  const durM = actualDur % 60;
-  const durStr = durH > 0
-    ? `${durH}時間${durM > 0 ? durM + '分' : ''}空き`
-    : `${durM}分 空き`;
-
-  // 高さに応じてレイアウト切り替え
-  const chipsHTML = fittingTasks.map(t => `
-    <div class="gap-task-chip" onclick="event.stopPropagation(); openGapTaskEdit(${t.id}, ${startMin})">
-      ＋ ${t.title}（${t.duration}分）
-    </div>`).join('');
-
-  let inner = '';
-  if (gapHeightPx >= 60 && fittingTasks.length > 0) {
-    // 縦並び：ヘッダー上、チップ下
-    inner = `
-      <div class="gap-header">
-        <div style="font-size:13px; font-weight:700;">${durStr}</div>
-        <div style="font-size:11px; opacity:0.65; margin-top:1px;">${timeStr}〜</div>
-      </div>
-      <div class="gap-tasks">${chipsHTML}</div>`;
-  } else if (gapHeightPx >= 28 && fittingTasks.length > 0) {
-    // 横並び：左にテキスト、右にチップ
-    inner = `
-      <div style="display:flex; align-items:center; gap:8px; padding:0 8px; height:100%; overflow:hidden;">
-        <div style="flex-shrink:0;">
-          <div style="font-size:12px; font-weight:700; color:#6b4f2e;">${durStr}</div>
-          <div style="font-size:10px; opacity:0.65; color:#6b4f2e;">${timeStr}〜</div>
-        </div>
-        <div style="display:flex; flex-wrap:nowrap; gap:4px; overflow:hidden; flex:1; justify-content:flex-end;">
-          ${chipsHTML}
-        </div>
-      </div>`;
-  } else {
-    // 極小：1行テキストのみ
-    inner = `
-      <div style="display:flex; align-items:center; height:100%; padding:0 8px; gap:6px; overflow:hidden;">
-        <div style="font-size:11px; font-weight:700; color:#6b4f2e; white-space:nowrap;">${durStr}</div>
-        ${fittingTasks.length > 0 ? `<div style="display:flex; gap:3px; overflow:hidden; flex:1; justify-content:flex-end;">${chipsHTML}</div>` : ''}
-      </div>`;
-  }
-
-  gap.innerHTML = inner;
-
-  gap.ondragover  = (e) => { e.preventDefault(); gap.classList.add('drag-over'); };
-  gap.ondragleave = () => gap.classList.remove('drag-over');
-  gap.ondrop = (e) => {
-    e.preventDefault(); gap.classList.remove('drag-over');
-    const task = state.tasks.find(t => t.id == e.dataTransfer.getData('taskId'));
-    if (task) { task.start = startMin; task.allocated = true; saveState(); renderAll(); }
-  };
-
-  document.getElementById('timeline').appendChild(gap);
-}
 
 // 空き時間のタスクチップをタップ → 時間を設定した状態で編集モーダルを開く
 function openGapTaskEdit(taskId, gapStart) {
@@ -1006,8 +1072,9 @@ function openGapTaskEdit(taskId, gapStart) {
   toggleRepeatUI(task.repeatMode, 'editCustomDays');
 
   // 空き時間の開始時刻をプリセット
-  const h = Math.floor(gapStart / 60), m = gapStart % 60;
-  document.getElementById('editTime').value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  const hv = Math.floor(gapStart / 60), mv = Math.round((gapStart % 60) / 5) * 5 % 60;
+  document.getElementById('editTimeH').value = hv;
+  document.getElementById('editTimeM').value = mv;
   document.getElementById('editTimeBox').style.display  = 'block';
   document.getElementById('moveLaterBtn').style.display = 'none';
   document.getElementById('editOverlay').style.display  = 'flex';
@@ -1127,8 +1194,10 @@ function openEdit(id) {
   }
   if (task.allocated || task.repeatMode !== 'none') {
     const s = getTaskStart(task, currentDayOffset);
-    const h = Math.floor((s || 0) / 60), m = (s || 0) % 60;
-    document.getElementById('editTime').value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    const hv = Math.floor((s || 0) / 60), mv = (s || 0) % 60;
+    document.getElementById('editTimeH').value = hv;
+    // 5分刻みに丸める
+    document.getElementById('editTimeM').value = Math.round(mv / 5) * 5 % 60;
     document.getElementById('editTimeBox').style.display  = 'block';
     document.getElementById('moveLaterBtn').style.display = task.repeatMode !== 'none' ? 'none' : 'block';
   } else {
@@ -1174,8 +1243,9 @@ function saveEdit() {
   const newCustom  = newRepeat === 'custom'
     ? Array.from(document.querySelectorAll('#editCustomDays input:checked')).map(i => parseInt(i.value))
     : [];
-  const tv = document.getElementById('editTime').value;
-  const newStart   = tv ? (() => { const [h,m] = tv.split(':').map(Number); return h*60+m; })() : task.start;
+  const hv = parseInt(document.getElementById('editTimeH').value) || 0;
+  const mv = parseInt(document.getElementById('editTimeM').value) || 0;
+  const newStart = hv * 60 + mv;
 
   // 繰り返しタスクの時間変更検出
   const isRepeat        = task.repeatMode !== 'none';
@@ -1199,12 +1269,17 @@ function saveEdit() {
   task.repeatMode = newRepeat;
   task.customDays = newCustom;
   if (task.allocated || task.repeatMode !== 'none') {
-    if (tv) task.start = newStart;
+    task.start = newStart;
     task.allocated = true;
+    // 繰り返しなしタスクは表示する日を固定
+    if (task.repeatMode === 'none') {
+      task.allocatedOffset = currentDayOffset;
+    }
   }
   if (!task.allocated && document.getElementById('editTimeBox').style.display !== 'none') {
     task.start     = newStart;
     task.allocated = true;
+    task.allocatedOffset = currentDayOffset;
   }
   closeEdit(); saveState(); renderAll();
 }
@@ -1232,19 +1307,10 @@ function updateDateDisplay() {
     currentDayOffset === 0 ? '今日' : `${d.getMonth()+1}/${d.getDate()}(${DAYS_JP[d.getDay()]})`;
 }
 
-function updateNowLine() {
-  const line = document.getElementById('nowLine');
-  if (!line || currentDayOffset !== 0) { if(line) line.style.display = 'none'; return; }
-  const now = new Date();
-  const pos = now.getHours() * 60 + now.getMinutes() - currentRange.start;
-  const h   = currentRange.end - currentRange.start;
-  line.style.display = (pos >= 0 && pos <= h) ? 'block' : 'none';
-  if (pos >= 0) line.style.top = pos + 'px';
-}
+function updateNowLine() { /* flow layout: now line rendered in renderTimeline */ }
 
 function updateClock() {
   document.getElementById('clock').textContent = new Date().toTimeString().split(' ')[0];
-  updateNowLine();
 }
 
 // ══════════════════════════════════════════════
