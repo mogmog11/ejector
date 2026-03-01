@@ -438,6 +438,7 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
         <label><input type="checkbox" value="0">日</label>
       </div>
     </div>
+    <div id="editNotifyBox" class="input-group"><label>通知</label><label style="display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;"><input type="checkbox" id="editNotify" style="width:20px;height:20px;accent-color:var(--green);flex-shrink:0;" onchange="handleNotifyToggle(this.checked)"><span style="font-size:13px;">🔔 開始時刻に通知する</span></label><div id="notifyPermissionMsg" style="display:none;font-size:11px;color:var(--red);margin-top:6px;padding:8px;background:#fff0f0;border-radius:8px;">通知が許可されていません。ブラウザの設定から通知を許可してください。</div></div>
     <div style="display:flex; gap:12px; margin-top:20px;">
       <button onclick="deleteTask()" style="flex:1; padding:12px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700;">削除</button>
       <button onclick="saveEdit()" style="flex:2; padding:12px; background:var(--green); color:white; border-radius:10px; font-weight:700;">保存</button>
@@ -1324,14 +1325,18 @@ function openEdit(id) {
     const s = getTaskStart(task, currentDayOffset);
     const hv = Math.floor((s || 0) / 60), mv = (s || 0) % 60;
     document.getElementById('editTimeH').value = hv;
-    // 5分刻みに丸める
     document.getElementById('editTimeM').value = Math.round(mv / 5) * 5 % 60;
     document.getElementById('editTimeBox').style.display  = 'block';
     document.getElementById('moveLaterBtn').style.display = task.repeatMode !== 'none' ? 'none' : 'block';
+    document.getElementById('editNotifyBox').style.display = 'block';
   } else {
     document.getElementById('editTimeBox').style.display  = 'none';
     document.getElementById('moveLaterBtn').style.display = 'none';
+    document.getElementById('editNotifyBox').style.display = 'none';
   }
+  // 通知チェックボックスの状態を反映
+  document.getElementById('editNotify').checked = !!task.notify;
+  document.getElementById('notifyPermissionMsg').style.display = 'none';
   document.getElementById('editOverlay').style.display = 'flex';
 }
 
@@ -1419,10 +1424,10 @@ function saveEdit() {
   task.duration   = newDur;
   task.repeatMode = newRepeat;
   task.customDays = newCustom;
+  task.notify     = document.getElementById('editNotify').checked;
   if (task.allocated || task.repeatMode !== 'none') {
     task.start = newStart;
     task.allocated = true;
-    // 繰り返しなしタスクは表示する日を固定
     if (task.repeatMode === 'none') {
       task.allocatedOffset = currentDayOffset;
     }
@@ -1512,19 +1517,70 @@ function startAutoSync() {
 }
 
 let _lastMinute = -1;
+// 通知済みを記録（同じ分に2回鳴らさないため）
+const _notifiedKeys = new Set();
+
 function updateClock() {
   const now = new Date();
   document.getElementById('clock').textContent = now.toTimeString().split(' ')[0];
-  // 1分ごとにプログレス再描画
   const min = now.getHours() * 60 + now.getMinutes();
   if (min !== _lastMinute) {
     _lastMinute = min;
+
     // 進行中ブロックのプログレスを更新
     document.querySelectorAll('.block.in-progress').forEach(el => {
       const pct = parseFloat(el.style.getPropertyValue('--progress')) || 0;
-      // 簡易更新：再renderAllは重いので1%加算で近似
       el.style.setProperty('--progress', Math.min(pct + 1, 100) + '%');
     });
+
+    // 通知チェック（今日のタスクのみ）
+    if (currentDayOffset === 0 && Notification.permission === 'granted') {
+      const dayTasks = state.tasks.filter(t => isTaskForToday(t, 0));
+      dayTasks.forEach(task => {
+        if (!task.notify) return;
+        const taskStart = getTaskStart(task, 0);
+        const key = `${task.id}-${taskStart}`;
+        if (taskStart === min && !_notifiedKeys.has(key)) {
+          _notifiedKeys.add(key);
+          new Notification(`⏰ ${task.title}`, {
+            body: '開始時刻になりました',
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            tag: key, // 同じタスクの重複通知を防ぐ
+          });
+        }
+      });
+    }
+  }
+}
+
+async function handleNotifyToggle(checked) {
+  if (!checked) {
+    document.getElementById('notifyPermissionMsg').style.display = 'none';
+    return;
+  }
+  if (!('Notification' in window)) {
+    document.getElementById('notifyPermissionMsg').textContent = 'このブラウザは通知に対応していません。';
+    document.getElementById('notifyPermissionMsg').style.display = 'block';
+    document.getElementById('editNotify').checked = false;
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    document.getElementById('notifyPermissionMsg').style.display = 'none';
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    document.getElementById('notifyPermissionMsg').style.display = 'block';
+    document.getElementById('editNotify').checked = false;
+    return;
+  }
+  // 未決定 → 許可を求める
+  const result = await Notification.requestPermission();
+  if (result !== 'granted') {
+    document.getElementById('notifyPermissionMsg').style.display = 'block';
+    document.getElementById('editNotify').checked = false;
+  } else {
+    document.getElementById('notifyPermissionMsg').style.display = 'none';
   }
 }
 
