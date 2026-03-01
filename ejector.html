@@ -438,7 +438,27 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   </div>
 </div>
 
-<!-- ─── 繰り返し変更確認モーダル ─── -->
+<!-- ─── 削除確認モーダル ─── -->
+<div id="deleteConfirmOverlay" class="overlay">
+  <div class="modal-card" onclick="event.stopPropagation()" style="max-width:340px;">
+    <p class="modal-title" style="font-size:15px;">🗑 タスクを削除</p>
+    <p id="deleteConfirmMsg" style="font-size:13px; color:var(--ink2); margin:0 0 20px; line-height:1.7;"></p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button id="deleteTodayBtn" onclick="applyDelete('today')"
+        style="padding:14px; background:var(--red); color:white; border-radius:12px; font-weight:700; font-size:14px;">
+        今日のみ削除
+      </button>
+      <button onclick="applyDelete('all')"
+        style="padding:14px; background:#7f1d1d; color:white; border-radius:12px; font-weight:700; font-size:14px;">
+        すべて削除
+      </button>
+      <button onclick="closeDeleteConfirm()"
+        style="padding:12px; color:var(--ink3); font-weight:700; font-size:13px;">
+        キャンセル
+      </button>
+    </div>
+  </div>
+</div>
 <div id="repeatConfirmOverlay" class="overlay">
   <div class="modal-card" onclick="event.stopPropagation()" style="max-width:340px;">
     <p class="modal-title" style="font-size:15px;">🔁 繰り返しタスクの変更</p>
@@ -718,14 +738,18 @@ function disconnectSync() {
 function isTaskForToday(task, offset) {
   if (!task.allocated) return false;
 
+  // 登録日より前のオフセットには表示しない
+  const created = task.createdOffset !== undefined ? task.createdOffset : -9999;
+  if (offset < created) return false;
+
+  // 今日のみ削除されている場合は非表示
+  if (task.deletedDates && task.deletedDates.includes(offset)) return false;
+
   if (task.repeatMode === 'none') {
-    // 繰り返しなしタスクは allocatedOffset が一致する日のみ表示
-    // allocatedOffset が未設定（旧データ）は offset=0 扱い
     const ao = task.allocatedOffset !== undefined ? task.allocatedOffset : 0;
     return ao === offset;
   }
 
-  // 繰り返しタスクの曜日チェック
   if (task.repeatMode === 'daily') return true;
 
   const d = new Date(); d.setDate(d.getDate() + offset);
@@ -1223,7 +1247,7 @@ function addTask() {
     document.querySelectorAll('#customDays input:checked').forEach(i => customDays.push(parseInt(i.value)));
   }
 
-  const newTask = { id: Date.now(), title, duration: dur, allocated: false, repeatMode, customDays, doneDates: [] };
+  const newTask = { id: Date.now(), title, duration: dur, allocated: false, repeatMode, customDays, doneDates: [], createdOffset: currentDayOffset };
 
   if (repeatMode !== 'none' && placement === 'timeline') {
     const ah = parseInt(document.getElementById('addTimeH')?.value) || 8;
@@ -1401,8 +1425,44 @@ function saveEdit() {
 }
 
 function deleteTask() {
-  state.tasks = state.tasks.filter(t => t.id !== editingTaskId);
-  closeEdit(); saveState(); renderAll();
+  const task = state.tasks.find(t => t.id === editingTaskId);
+  if (!task) return;
+
+  if (task.repeatMode !== 'none') {
+    // 繰り返しタスク → 確認モーダル
+    document.getElementById('deleteConfirmMsg').textContent =
+      `「${task.title}」は繰り返しタスクです。今日のみ削除しますか？それともすべての日から削除しますか？`;
+    // 今日のみ削除ボタン（あとでリストのタスクには不要なので非表示）
+    document.getElementById('deleteTodayBtn').style.display = task.allocated ? 'block' : 'none';
+    document.getElementById('deleteConfirmOverlay').style.display = 'flex';
+  } else {
+    // 通常タスク → 即削除
+    state.tasks = state.tasks.filter(t => t.id !== editingTaskId);
+    closeEdit(); saveState(); renderAll();
+  }
+}
+
+function closeDeleteConfirm() {
+  document.getElementById('deleteConfirmOverlay').style.display = 'none';
+}
+
+function applyDelete(mode) {
+  const task = state.tasks.find(t => t.id === editingTaskId);
+  if (!task) return;
+
+  if (mode === 'today') {
+    // 今日のみ非表示：deletedDates に追加
+    if (!task.deletedDates) task.deletedDates = [];
+    task.deletedDates.push(currentDayOffset);
+  } else {
+    // すべて削除
+    state.tasks = state.tasks.filter(t => t.id !== editingTaskId);
+  }
+
+  closeDeleteConfirm();
+  closeEdit();
+  saveState();
+  renderAll();
 }
 
 function moveToLaterFromEdit() {
