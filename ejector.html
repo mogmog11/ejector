@@ -258,12 +258,23 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 @media (max-width: 768px) {
   #rpanel { display: none; }
   #tabNav { display: flex; }
+
   #app.show-later #main { display: none; }
-  #app.show-later #rpanel { display: flex; width: 100%; border-left: none; }
+  #app.show-later #rpanel {
+    display: flex; width: 100%; border-left: none;
+    overflow: hidden; /* スクロール領域を正しく確保 */
+  }
   #app.show-later #input-view { display: none; }
-  #app.show-later #later-view { display: flex; flex: 1; min-height: 0; }
+  #app.show-later #later-view {
+    display: flex; flex-direction: column;
+    flex: 1; min-height: 0; overflow: hidden;
+  }
+  #app.show-later .later-list {
+    flex: 1; overflow-y: auto; min-height: 0;
+  }
+
   #app.show-input #main { display: none; }
-  #app.show-input #rpanel { display: flex; width: 100%; border-left: none; }
+  #app.show-input #rpanel { display: flex; width: 100%; border-left: none; overflow: hidden; }
   #app.show-input #later-view { display: none; }
   #app.show-input #input-view { display: flex; max-height: 100%; flex: 1; overflow-y: auto; }
 }
