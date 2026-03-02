@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -35,6 +35,2672 @@
   --blue-dim:  rgba(52,73,94,0.1);
   --red:       #c0392b;
   --now-line:  #3e352a;
+  --font-main: 'M PLUS Rounded 1c', sans-serif;
+  --header-h: 60px;
+  --nav-h: 65px;
+}
+
+/* ─── BASE ─── */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: var(--font-main) !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); overflow: hidden; font-size: 14px; line-height: 1.5; }
+button { cursor: pointer; border: none; background: none; color: inherit; }
+
+/* ─── LAYOUT ─── */
+#app { display: flex; height: 100dvh; width: 100vw; flex-direction: column; }
+#container { display: flex; flex: 1; overflow: hidden; }
+#main { flex: 1; display: flex; flex-direction: column; position: relative; background: var(--surface); min-width: 0; }
+#rpanel { width: 320px; background: var(--bg2); display: flex; flex-direction: column; border-left: 1px solid var(--border); z-index: 100; overflow: hidden; }
+
+/* input-view は中身が多い場合スクロール */
+#input-view { display: flex; flex-direction: column; overflow-y: auto; max-height: 60%; flex-shrink: 0; }
+/* later-view は残りスペースを埋めてスクロール */
+#later-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid var(--border); min-height: 0; }
+/* report-view */
+#report-view { display: none; }
+
+/* ─── HEADER ─── */
+header {
+  height: var(--header-h);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; padding: 0 16px; background: var(--surface);
+}
+#clock { font-size: 16px; font-weight: 700; color: var(--green); flex-shrink: 0; }
+#currentDateDisplay { font-weight: 700; font-size: 14px; flex-shrink: 0; }
+/* PC: weekNav をヘッダー内に横並び */
+#weekNav {
+  flex: 1; display: flex; align-items: center; gap: 0;
+  overflow: hidden; height: 100%;
+}
+.header-spacer { flex: 1; }
+
+/* ─── SYNC BUTTON ─── */
+#syncBtn {
+  font-size: 18px; width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink3); transition: color 0.3s;
+  border: 1px solid var(--border); background: var(--bg2);
+}
+#syncBtn:hover { color: var(--green); border-color: var(--green); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+
+/* ─── TIMELINE ─── */
+#tlWrap { flex: 1; overflow-y: auto; position: relative; scroll-behavior: smooth; }
+.timeline {
+  display: flex; flex-direction: column;
+  padding: 8px 12px 40px 0;
+  min-height: 100%;
+}
+/* 各行：時間ラベル + コンテンツ */
+.tl-row {
+  display: flex; align-items: stretch; min-height: 0;
+  position: relative;
+}
+.tl-row.tl-task   { min-height: 56px; }
+.tl-row.tl-gap    { min-height: 64px; }
+/* 左カラム：時間ラベル＋縦線 */
+.tl-time-col {
+  width: 58px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: flex-end;
+  padding-right: 8px; position: relative;
+}
+.tl-time-label {
+  font-size: 11px; color: var(--ink3); font-weight: 500;
+  margin-top: -6px; white-space: nowrap;
+}
+.tl-vline {
+  flex: 1; width: 2px; background: var(--border);
+  margin: 4px auto 0; border-radius: 1px;
+}
+/* 右カラム：ブロック/ギャップ */
+.tl-content-col { flex: 1; padding: 3px 0 3px 4px; display: flex; gap: 4px; }
+
+/* ─── BLOCKS & GAPS (flow) ─── */
+.block {
+  flex: 1; background: white;
+  border: 1px solid var(--border); border-left: 5px solid var(--green);
+  border-radius: 10px; padding: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+  display: flex; align-items: flex-start; gap: 8px;
+  cursor: pointer; overflow: hidden; min-width: 0;
+  position: relative;
+}
+.block.in-progress {
+  background: linear-gradient(
+    to bottom,
+    rgba(45,122,79,0.13) var(--progress, 0%),
+    white var(--progress, 0%)
+  );
+}
+.block.special.in-progress {
+  background: linear-gradient(
+    to bottom,
+    rgba(52,73,94,0.13) var(--progress, 0%),
+    #f0f4f8 var(--progress, 0%)
+  );
+}
+/* 完了済みでも進行中なら色を付ける（opacity:0.5で薄くなるので少し濃いめ） */
+.block.completed.in-progress {
+  background: linear-gradient(
+    to bottom,
+    rgba(45,122,79,0.28) var(--progress, 0%),
+    white var(--progress, 0%)
+  );
+}
+.block.special { border-left-color: var(--blue); background: #f0f4f8; }
+.block.completed { opacity: 0.5; filter: grayscale(0.5); }
+.task-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--green); margin-top: 2px; flex-shrink: 0; }
+
+/* ─── FREE GAP ─── */
+.free-gap {
+  flex: 1;
+  background: #f5efe6;
+  border: 1px solid #c8b89a;
+  border-left: 5px solid #a07850;
+  border-radius: 10px;
+  color: #6b4f2e;
+  transition: background 0.2s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+  overflow: hidden; display: flex; align-items: center;
+}
+.free-gap.drag-over { background: #ede0ce; border-color: #a07850; }
+/* Now line for flow layout */
+.tl-now-row {
+  display: flex; align-items: center;
+  position: relative; margin: 0;
+}
+.tl-now-line {
+  height: 2px; background: var(--now-line);
+  flex: 1; border-radius: 1px; margin-left: 58px;
+}
+.tl-now-dot {
+  width: 10px; height: 10px; background: var(--now-line);
+  border-radius: 50%; margin-left: 54px; flex-shrink: 0;
+  position: absolute; left: 0; top: -4px;
+}
+.gap-header {
+  display: flex; flex-direction: column;
+  padding: 10px 12px 6px;
+  font-size: 13px; font-weight: 700; color: #6b4f2e;
+}
+.gap-header::before {
+  content: none;
+}
+.gap-tasks {
+  padding: 0 10px 10px; display: flex; flex-wrap: wrap; gap: 6px;
+}
+.gap-task-chip {
+  background: white !important;
+  border: 1.5px solid #a07850 !important;
+  border-radius: 20px !important;
+  padding: 3px 10px !important;
+  font-size: 11px !important; font-weight: 700 !important;
+  color: #7a5530 !important; cursor: pointer !important;
+  white-space: nowrap !important;
+  box-shadow: 0 1px 4px rgba(160,120,80,0.12);
+  transition: background 0.15s, transform 0.1s;
+}
+.gap-task-chip:active { background: #f0e6d8 !important; transform: scale(0.96); }
+
+/* ─── LATER REPEAT BADGE ─── */
+.later-card.repeat { border-left: 4px solid var(--green); }
+.later-repeat-badge {
+  font-size: 10px; font-weight: 700; color: var(--green);
+  background: var(--green-dim); border-radius: 10px; padding: 2px 7px;
+}
+
+/* ─── OVERLAYS ─── */
+.overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); z-index: 2000;
+  display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-card {
+  background: white; width: 100%; max-width: 400px;
+  border-radius: 20px; padding: 24px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+  max-height: 90dvh; overflow-y: auto;
+}
+.modal-title { font-size: 17px; font-weight: 700; margin: 0 0 14px; }
+
+/* ─── SYNC UI ─── */
+.sync-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 14px;
+}
+.sync-badge.off     { background: var(--bg2); color: var(--ink3); }
+.sync-badge.syncing { background: var(--blue-dim); color: var(--blue); }
+.sync-badge.ok      { background: var(--green-dim); color: var(--green); }
+.sync-badge.error   { background: rgba(192,57,43,0.1); color: var(--red); }
+
+.instructions {
+  background: var(--bg2); border-radius: 10px; padding: 12px;
+  font-size: 12px; color: var(--ink2); margin: 10px 0;
+}
+.instructions ol { margin: 6px 0; padding-left: 18px; }
+.instructions li { margin-bottom: 5px; line-height: 1.6; }
+.instructions a { color: var(--green); }
+.instructions code {
+  background: var(--bg3); padding: 1px 5px; border-radius: 4px;
+  font-size: 11px; font-family: monospace !important;
+}
+details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(--ink2); font-size: 13px; }
+
+/* ─── WEEK NAV ─── */
+/* PC: ヘッダー内インライン表示 */
+#weekNav {
+  display: flex; align-items: center; gap: 0;
+  background: transparent; border: none; padding: 0;
+  overflow: hidden;
+}
+.week-today-btn {
+  flex-shrink: 0; padding: 6px 14px;
+  background: var(--green); color: white;
+  border-radius: 20px; font-size: 12px; font-weight: 700;
+  white-space: nowrap; margin-right: 6px;
+}
+.week-arrow {
+  flex-shrink: 0; width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink3); font-size: 16px; border-radius: 50%;
+  background: none;
+}
+.week-arrow:active, .week-arrow:hover { background: var(--bg2); }
+.week-days {
+  display: flex; align-items: center;
+  overflow: hidden; gap: 0; flex: 1;
+}
+.week-day-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 4px 2px; border-radius: 8px;
+  font-size: 10px; font-weight: 700; color: var(--ink3);
+  background: none; border: none; min-width: 0;
+  transition: background 0.15s; cursor: pointer;
+}
+.week-day-btn .day-num { font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+.week-day-btn.active { background: var(--green-dim); }
+.week-day-btn.active .wday-label,
+.week-day-btn.active .day-num { color: var(--green); }
+.week-day-btn.today-marker .day-num { color: var(--green); }
+.week-day-btn.sun .wday-label,
+.week-day-btn.sun .day-num { color: #c0392b; }
+.week-day-btn.sat .wday-label,
+.week-day-btn.sat .day-num { color: #2980b9; }
+.week-day-btn.active.sun .wday-label,
+.week-day-btn.active.sun .day-num,
+.week-day-btn.active.sat .wday-label,
+.week-day-btn.active.sat .day-num { color: var(--green); }
+
+/* スマホ版 weekNav（PC では非表示） */
+#weekNavMobile { display: none; }
+
+/* ─── REPORT ─── */
+.habit-row {
+  display:flex; align-items:center; gap:8px; margin-bottom:10px;
+}
+.habit-title {
+  font-size:12px; font-weight:700; color:var(--ink2);
+  width:72px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.habit-dots { display:flex; gap:4px; flex:1; }
+.habit-dot {
+  width:28px; height:28px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:700; flex-shrink:0;
+}
+.habit-dot.done     { background:var(--green); color:white; }
+.habit-dot.missed   { background:var(--bg3); color:var(--ink4); }
+.habit-dot.future   { background:var(--bg2); color:var(--ink4); opacity:0.4; }
+.habit-dot.noplan   { background:transparent; color:transparent; }
+.habit-pct { font-size:11px; font-weight:700; color:var(--green); width:32px; text-align:right; flex-shrink:0; }
+
+.bar-row {
+  display:flex; align-items:center; gap:8px; margin-bottom:8px;
+}
+.bar-label { font-size:12px; color:var(--ink2); width:80px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bar-track { flex:1; height:12px; background:var(--bg2); border-radius:6px; overflow:hidden; }
+.bar-fill  { height:100%; background:var(--green); border-radius:6px; transition:width 0.5s; }
+.bar-val   { font-size:11px; font-weight:700; color:var(--ink3); width:36px; text-align:right; flex-shrink:0; }
+
+.review-stat {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 0; border-bottom:1px solid var(--bg2);
+}
+.review-stat:last-child { border-bottom:none; }
+.review-stat-label { font-size:13px; color:var(--ink2); }
+.review-stat-val   { font-size:16px; font-weight:700; color:var(--green); }
+.subtask-item {
+  display: flex; align-items: center; gap: 8px;
+  background: white; border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px;
+}
+.subtask-item.done .subtask-label {
+  text-decoration: line-through; color: var(--ink4);
+}
+.subtask-label { flex: 1; font-size: 13px; color: var(--ink); }
+.subtask-del { color: var(--ink4); font-size: 16px; line-height: 1; padding: 2px 4px; }
+.subtask-del:hover { color: var(--red); }
+/* タイムラインブロック内のサブタスク進捗 */
+.subtask-progress {
+  font-size: 10px; color: var(--ink3); margin-top: 2px;
+  display: flex; align-items: center; gap: 4px;
+}
+.subtask-progress-bar {
+  flex: 1; height: 3px; background: var(--border);
+  border-radius: 2px; overflow: hidden; max-width: 60px;
+}
+.subtask-progress-fill {
+  height: 100%; background: var(--green); border-radius: 2px;
+  transition: width 0.3s;
+}
+
+#tabNav {
+  display: none; height: var(--nav-h); background: white; border-top: 1px solid var(--border);
+  justify-content: space-around; align-items: center; z-index: 1000;
+}
+.tab-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: var(--ink3); font-weight: 700; }
+.tab-btn.active { color: var(--green); }
+.tab-btn svg { width: 24px; height: 24px; }
+
+/* ─── INPUT PANEL ─── */
+.section-title { padding: 16px; font-weight: 700; font-size: 15px; color: var(--ink); }
+.input-group { margin-bottom: 12px; }
+.input-group label { display: block; font-size: 11px; color: var(--ink3); font-weight: 700; margin-bottom: 4px; }
+.input-field { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: white; outline: none; font-size: 14px; }
+.input-field:focus { border-color: var(--green); }
+
+/* ─── LATER LIST ─── */
+.later-list { flex: 1; overflow-y: auto; padding: 12px; }
+.later-card {
+  background: white; border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 10px; cursor: grab;
+}
+.later-card.completed { opacity: 0.5; filter: grayscale(0.5); }
+
+/* ─── MEDIA QUERIES ─── */
+@media (max-width: 768px) {
+  header { height: var(--header-h); padding: 0 12px; flex-wrap: nowrap; }
+  #currentDateDisplay { display: none !important; }
+  /* ヘッダー内のweekNavを非表示にしてスマホ用を使う */
+  #weekNav { display: none !important; }
+  #weekNavMobile {
+    display: flex; align-items: center;
+    height: 52px; padding: 0 4px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0;
+  }
+  #weekNavMobile .week-days { flex: 1; display: flex; overflow: hidden; }
+
+  #rpanel { display: none; }
+  #tabNav { display: flex; }
+
+  #app.show-later #main { display: none; }
+  #app.show-later #rpanel {
+    display: flex; width: 100%; border-left: none;
+    overflow: hidden; /* スクロール領域を正しく確保 */
+  }
+  #app.show-later #input-view { display: none; }
+  #app.show-later #later-view {
+    display: flex; flex-direction: column;
+    flex: 1; min-height: 0; overflow: hidden;
+  }
+  #app.show-later .later-list {
+    flex: 1; overflow-y: auto; min-height: 0;
+  }
+
+  #app.show-input #main { display: none; }
+  #app.show-input #rpanel { display: flex; width: 100%; border-left: none; overflow: hidden; }
+  #app.show-input #later-view { display: none; }
+  #app.show-input #input-view { display: flex; max-height: 100%; flex: 1; overflow-y: auto; }
+
+  #app.show-report #main { display: none; }
+  #app.show-report #rpanel { display: flex; width: 100%; border-left: none; overflow: hidden; }
+  #app.show-report #later-view { display: none; }
+  #app.show-report #input-view { display: none; }
+  #app.show-report #report-view { display: flex !important; flex: 1; min-height: 0; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div id="clock">00:00:00</div>
+    <!-- PC版: weekNav をヘッダー内インライン表示 -->
+    <div id="weekNav">
+      <button class="week-today-btn" onclick="goToday()">今日</button>
+      <button class="week-arrow" onclick="changeDate(-1)">‹</button>
+      <div class="week-days" id="weekDays"></div>
+      <button class="week-arrow" onclick="changeDate(1)">›</button>
+    </div>
+    <span id="currentDateDisplay" style="font-weight:700; font-size:14px; flex-shrink:0; display:none;"></span>
+    <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+      <button id="pullBtn" onclick="manualPull()" title="今すぐ同期" style="font-size:18px; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink3); border:1px solid var(--border); background:var(--bg2);">↻</button>
+      <button id="syncBtn" onclick="openSyncSettings()" title="データ同期設定">☁</button>
+    </div>
+  </header>
+
+  <!-- スマホ版: weekNav を別行に（CSSで制御） -->
+  <div id="weekNavMobile">
+    <button class="week-today-btn" onclick="goToday()">今日</button>
+    <button class="week-arrow" onclick="changeDate(-1)">‹</button>
+    <div class="week-days" id="weekDaysMobile"></div>
+    <button class="week-arrow" onclick="changeDate(1)">›</button>
+  </div>
+
+  <div id="container">
+    <div id="main">
+      <div id="tlWrap">
+        <div class="timeline" id="timeline">
+          <div id="nowLine"></div>
+        </div>
+      </div>
+    </div>
+
+    <aside id="rpanel">
+      <section id="input-view">
+        <div class="section-title">タスクを追加</div>
+        <div style="padding: 0 16px 16px;">
+          <div class="input-group">
+            <label>タイトル</label>
+            <input type="text" id="taskTitle" class="input-field" placeholder="例: 起床, 朝食, 読書, 就寝">
+          </div>
+          <div class="input-group">
+            <label>所要時間 (分)</label>
+            <input type="number" id="taskDur" class="input-field" value="30" min="5">
+          </div>
+          <div class="input-group">
+            <label>繰り返し設定</label>
+            <select id="taskRepeatMode" class="input-field" onchange="toggleRepeatUI(this.value); togglePlacementUI(this.value)">
+              <option value="none">繰り返さない</option>
+              <option value="daily">毎日</option>
+              <option value="weekday">平日 (月〜金)</option>
+              <option value="weekend">休日 (土・日)</option>
+              <option value="month-end">月末 (各月の最終日)</option>
+              <option value="custom">曜日指定...</option>
+            </select>
+          </div>
+          <div id="customDays" class="input-group" style="display:none; background:white; padding:10px; border-radius:10px; border:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between;">
+              <label><input type="checkbox" value="1">月</label>
+              <label><input type="checkbox" value="2">火</label>
+              <label><input type="checkbox" value="3">水</label>
+              <label><input type="checkbox" value="4">木</label>
+              <label><input type="checkbox" value="5">金</label>
+              <label><input type="checkbox" value="6" style="accent-color:blue;">土</label>
+              <label><input type="checkbox" value="0" style="accent-color:red;">日</label>
+            </div>
+          </div>
+          <div id="placementBox" class="input-group" style="display:none;">
+            <label>登録先</label>
+            <div style="display:flex; gap:8px;">
+              <label style="flex:1; display:flex; align-items:center; gap:6px; background:white; border:1px solid var(--border); border-radius:10px; padding:10px; cursor:pointer;">
+                <input type="radio" name="taskPlacementR" value="timeline" checked onchange="document.getElementById('taskPlacement').value=this.value; document.getElementById('addTimeBox').style.display='block'">
+                <span style="font-size:13px; font-weight:700;">📅 タイムライン</span>
+              </label>
+              <label style="flex:1; display:flex; align-items:center; gap:6px; background:white; border:1px solid var(--border); border-radius:10px; padding:10px; cursor:pointer;">
+                <input type="radio" name="taskPlacementR" value="later" onchange="document.getElementById('taskPlacement').value=this.value; document.getElementById('addTimeBox').style.display='none'">
+                <span style="font-size:13px; font-weight:700;">📋 あとでリスト</span>
+              </label>
+            </div>
+            <input type="hidden" id="taskPlacement" value="timeline">
+          </div>
+          <div id="addTimeBox" class="input-group" style="display:none;">
+            <label>開始時間</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select id="addTimeH" class="input-field" style="flex:1;"></select>
+              <span style="font-weight:700; font-size:16px;">:</span>
+              <select id="addTimeM" class="input-field" style="flex:1;"></select>
+            </div>
+          </div>
+          <button onclick="addTask()" style="width:100%; padding:14px; background:var(--green); color:white; border-radius:12px; font-weight:700; box-shadow: 0 4px 10px var(--green-dim); margin-top:8px;">追加</button>
+        </div>
+      </section>
+
+      <section id="later-view">
+        <div class="section-title">あとで (リスト)</div>
+        <div class="later-list" id="later-list"></div>
+      </section>
+
+      <section id="report-view" style="display:none; flex-direction:column; flex:1; overflow-y:auto;">
+        <div class="section-title">📊 レポート</div>
+        <div style="padding:0 16px 16px;">
+
+          <!-- 週切り替え -->
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <button onclick="changeReportWeek(-1)" style="width:32px;height:32px;border-radius:50%;background:var(--bg2);font-size:18px;display:flex;align-items:center;justify-content:center;">‹</button>
+            <span id="reportWeekLabel" style="font-weight:700; font-size:13px; color:var(--ink2);"></span>
+            <button onclick="changeReportWeek(1)" style="width:32px;height:32px;border-radius:50%;background:var(--bg2);font-size:18px;display:flex;align-items:center;justify-content:center;">›</button>
+          </div>
+
+          <!-- 習慣トラッカー -->
+          <div style="background:white;border-radius:14px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
+            <div style="font-weight:700;font-size:13px;margin-bottom:12px;">🔁 習慣トラッカー</div>
+            <div id="habitTracker"></div>
+          </div>
+
+          <!-- 時間の使い方グラフ -->
+          <div style="background:white;border-radius:14px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
+            <div style="font-weight:700;font-size:13px;margin-bottom:12px;">⏱ 時間の使い方</div>
+            <div id="timeGraph"></div>
+          </div>
+
+          <!-- 週次レビュー -->
+          <div style="background:white;border-radius:14px;padding:14px;border:1px solid var(--border);">
+            <div style="font-weight:700;font-size:13px;margin-bottom:12px;">📋 週次レビュー</div>
+            <div id="weeklyReview"></div>
+          </div>
+
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <nav id="tabNav">
+    <button class="tab-btn active" onclick="switchTab('main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M9 4v18"/></svg>
+      <span>予定</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('later')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span>リスト</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('input')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <span>追加</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('report')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18l5-5 4 4 5-6 4 4"/><path d="M3 6h18"/></svg>
+      <span>レポート</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ─── 編集モーダル ─── -->
+<div id="editOverlay" class="overlay" onclick="closeEdit()">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <p class="modal-title">タスクを編集</p>
+    <div class="input-group">
+      <label>タイトル</label>
+      <input type="text" id="editTitle" class="input-field">
+    </div>
+    <div class="input-group" id="editTimeBox">
+      <label>開始時間</label>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <select id="editTimeH" class="input-field" style="flex:1;"></select>
+        <span style="font-weight:700; font-size:16px;">:</span>
+        <select id="editTimeM" class="input-field" style="flex:1;"></select>
+      </div>
+    </div>
+    <div class="input-group">
+      <label>所要時間 (分)</label>
+      <input type="number" id="editDur" class="input-field">
+    </div>
+    <div class="input-group">
+      <label>繰り返し設定</label>
+      <select id="editRepeatMode" class="input-field" onchange="toggleRepeatUI(this.value, 'editCustomDays')">
+        <option value="none">繰り返さない</option>
+        <option value="daily">毎日</option>
+        <option value="weekday">平日 (月〜金)</option>
+        <option value="weekend">休日 (土・日)</option>
+        <option value="month-end">月末 (各月の最終日)</option>
+        <option value="custom">曜日指定...</option>
+      </select>
+    </div>
+    <div id="editCustomDays" class="input-group" style="display:none; background:var(--bg2); padding:10px; border-radius:10px;">
+      <div style="display:flex; justify-content:space-between;">
+        <label><input type="checkbox" value="1">月</label>
+        <label><input type="checkbox" value="2">火</label>
+        <label><input type="checkbox" value="3">水</label>
+        <label><input type="checkbox" value="4">木</label>
+        <label><input type="checkbox" value="5">金</label>
+        <label><input type="checkbox" value="6">土</label>
+        <label><input type="checkbox" value="0">日</label>
+      </div>
+    </div>
+    <div id="editNotifyBox" class="input-group"><label>通知</label><label style="display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;"><input type="checkbox" id="editNotify" style="width:20px;height:20px;accent-color:var(--green);flex-shrink:0;" onchange="handleNotifyToggle(this.checked)"><span style="font-size:13px;">🔔 開始時刻に通知する</span></label><div id="notifyPermissionMsg" style="display:none;font-size:11px;color:var(--red);margin-top:6px;padding:8px;background:#fff0f0;border-radius:8px;">通知が許可されていません。ブラウザの設定から通知を許可してください。</div></div>
+
+    <!-- サブタスク -->
+    <div class="input-group">
+      <label>サブタスク</label>
+      <div id="subtaskList" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;"></div>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="subtaskInput" class="input-field" placeholder="サブタスクを追加..."
+          style="flex:1; padding:10px 12px; font-size:13px;"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addSubtask();}">
+        <button onclick="addSubtask()" style="padding:10px 14px; background:var(--green); color:white; border-radius:10px; font-weight:700; font-size:18px; flex-shrink:0;">+</button>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-top:20px;">
+      <button onclick="deleteTask()" style="flex:1; padding:12px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700;">削除</button>
+      <button onclick="saveEdit()" style="flex:2; padding:12px; background:var(--green); color:white; border-radius:10px; font-weight:700;">保存</button>
+    </div>
+    <button onclick="moveToLaterFromEdit()" id="moveLaterBtn" style="width:100%; margin-top:12px; padding:10px; color:var(--green); font-weight:700;">「あとで」に戻す</button>
+  </div>
+</div>
+
+<!-- ─── 削除確認モーダル ─── -->
+<div id="deleteConfirmOverlay" class="overlay">
+  <div class="modal-card" onclick="event.stopPropagation()" style="max-width:340px;">
+    <p class="modal-title" style="font-size:15px;">🗑 タスクを削除</p>
+    <p id="deleteConfirmMsg" style="font-size:13px; color:var(--ink2); margin:0 0 20px; line-height:1.7;"></p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button id="deleteTodayBtn" onclick="applyDelete('today')"
+        style="padding:14px; background:var(--red); color:white; border-radius:12px; font-weight:700; font-size:14px;">
+        今日のみ削除
+      </button>
+      <button onclick="applyDelete('all')"
+        style="padding:14px; background:#7f1d1d; color:white; border-radius:12px; font-weight:700; font-size:14px;">
+        すべて削除
+      </button>
+      <button onclick="closeDeleteConfirm()"
+        style="padding:12px; color:var(--ink3); font-weight:700; font-size:13px;">
+        キャンセル
+      </button>
+    </div>
+  </div>
+</div>
+<div id="repeatConfirmOverlay" class="overlay">
+  <div class="modal-card" onclick="event.stopPropagation()" style="max-width:340px;">
+    <p class="modal-title" style="font-size:15px;">🔁 繰り返しタスクの変更</p>
+    <p id="repeatConfirmMsg" style="font-size:13px; color:var(--ink2); margin:0 0 20px; line-height:1.7;"></p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button onclick="applyRepeatChange('today')"
+        style="padding:14px; background:var(--green); color:white; border-radius:12px; font-weight:700; font-size:14px;">
+        今日のみ変更
+      </button>
+      <button onclick="applyRepeatChange('all')"
+        style="padding:14px; background:var(--blue); color:white; border-radius:12px; font-weight:700; font-size:14px;">
+        今後すべて変更
+      </button>
+      <button onclick="closeRepeatConfirm()"
+        style="padding:12px; color:var(--ink3); font-weight:700; font-size:13px;">
+        キャンセル
+      </button>
+    </div>
+  </div>
+</div>
+<div id="syncOverlay" class="overlay" onclick="closeSyncSettings()">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <p class="modal-title">☁ データ同期設定</p>
+
+    <div id="syncStatusBadge" class="sync-badge off">⊘ 未接続</div>
+
+    <details open>
+      <summary>📋 設定手順（無料・Worker URLのみ）</summary>
+      <div class="instructions">
+        <ol>
+          <li><a href="https://dash.cloudflare.com/sign-up" target="_blank">cloudflare.com</a> に無料登録（メールのみ）</li>
+          <li>左メニュー「Workers &amp; Pages」→「Create」→「Create Worker」</li>
+          <li>Worker 名を適当につけて「Deploy」</li>
+          <li>「Edit code」を開いて、以下のコードを<strong>全て上書き</strong>してペースト</li>
+          <li>右上の「Deploy」ボタンを押す</li>
+          <li>左メニュー「KV」→「Create a namespace」→ 名前は何でもOK（例: <code>ejector</code>）→「Add」</li>
+          <li>Workerの設定画面 →「Settings」→「Bindings」→「Add」→「KV Namespace」→ 変数名を <code>KV</code>、先ほどのKVを選択して保存</li>
+          <li>Worker の URL（<code>https://xxx.workers.dev</code>）を下の欄に貼り付けて「接続する」</li>
+        </ol>
+        <div style="margin-top:8px; padding:10px; background:var(--bg3); border-radius:8px;">
+          <div style="font-size:11px; font-weight:700; color:var(--ink2); margin-bottom:6px;">📄 Worker コード（コピーして貼り付け）</div>
+          <textarea id="workerCodeBox" readonly style="width:100%; height:140px; font-size:10px; font-family:monospace; border:1px solid var(--border2); border-radius:6px; padding:6px; background:white; resize:none; color:var(--ink);">// ═══════════════════════════════════════════════════════
+//  EJECTOR Cloudflare Worker - データ同期 + Web Push通知
+//  KV Bindings: KV (データ), VAPID_PRIVATE_KEY (環境変数)
+//  Cron Trigger: */1 * * * * （毎分実行）
+// ═══════════════════════════════════════════════════════
+
+const VAPID_PUBLIC_KEY  = 'BKA3ETkb7y1UslBTOCURZKrRZUPSb19xUTZlE60OCJDlNW0CrxB5hdvNkdxaZJ9GHrmhZlr3zkCvk4I6tILjnug';
+const VAPID_SUBJECT     = 'mailto:ejector-app@example.com';
+
+// ── CORS ──────────────────────────────────────────────
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Secret',
+};
+const cors  = (body, status = 200, extra = {}) =>
+  new Response(body, { status, headers: { ...CORS, ...extra } });
+const json  = (obj,  status = 200) =>
+  cors(JSON.stringify(obj), status, { 'Content-Type': 'application/json' });
+
+// ── Auth ──────────────────────────────────────────────
+async function checkAuth(request, env) {
+  const secret = request.headers.get('X-Secret') || '';
+  const stored = await env.KV.get('__secret__');
+  if (stored && stored !== secret) return false;
+  if (!stored && secret) await env.KV.put('__secret__', secret);
+  return true;
+}
+
+// ═══════════════════════════════════════════════════════
+//  FETCH ハンドラ
+// ═══════════════════════════════════════════════════════
+export default {
+  async fetch(request, env) {
+    if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+    if (!await checkAuth(request, env)) return cors('Unauthorized', 401);
+
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    // ── タスクデータ GET/PUT ──────────────────────────
+    if (path === '/' || path === '') {
+      if (request.method === 'GET') {
+        const data = await env.KV.get('ejector_data');
+        return cors(data || '{}', 200, { 'Content-Type': 'application/json' });
+      }
+      if (request.method === 'PUT') {
+        const body = await request.text();
+        await env.KV.put('ejector_data', body);
+        return cors('ok');
+      }
+    }
+
+    // ── Push サブスクリプション登録 POST /subscribe ───
+    if (path === '/subscribe' && request.method === 'POST') {
+      const sub = await request.json();
+      // 既存サブスクリプション一覧を取得
+      const existing = JSON.parse(await env.KV.get('push_subscriptions') || '[]');
+      // 同じendpointは重複登録しない
+      const filtered = existing.filter(s => s.endpoint !== sub.endpoint);
+      filtered.push(sub);
+      await env.KV.put('push_subscriptions', JSON.stringify(filtered));
+      return json({ ok: true });
+    }
+
+    // ── Push サブスクリプション削除 DELETE /subscribe ─
+    if (path === '/subscribe' && request.method === 'DELETE') {
+      const { endpoint } = await request.json();
+      const existing = JSON.parse(await env.KV.get('push_subscriptions') || '[]');
+      await env.KV.put('push_subscriptions', JSON.stringify(existing.filter(s => s.endpoint !== endpoint)));
+      return json({ ok: true });
+    }
+
+    // ── VAPID 公開鍵を返す GET /vapid-public-key ──────
+    if (path === '/vapid-public-key' && request.method === 'GET') {
+      return json({ key: VAPID_PUBLIC_KEY });
+    }
+
+    return cors('Not found', 404);
+  },
+
+  // ═══════════════════════════════════════════════════
+  //  CRON ハンドラ（毎分実行）
+  // ═══════════════════════════════════════════════════
+  async scheduled(event, env) {
+    await checkAndPushNotifications(env);
+  }
+};
+
+// ═══════════════════════════════════════════════════════
+//  通知ロジック
+// ═══════════════════════════════════════════════════════
+async function checkAndPushNotifications(env) {
+  // 現在のJST時刻を取得（分単位）
+  const now = new Date();
+  const jstOffset = 9 * 60; // JST = UTC+9
+  const jstMin = now.getUTCHours() * 60 + now.getUTCMinutes() + jstOffset;
+  const todayJstMin = jstMin % (24 * 60); // 0〜1439
+
+  // タスクデータ取得
+  const dataRaw = await env.KV.get('ejector_data');
+  if (!dataRaw) return;
+  const data = JSON.parse(dataRaw);
+  if (!data.tasks) return;
+
+  // 今日の日付オフセット = 0（Worker側は常に「今日」のタスクだけチェック）
+  const tasksToNotify = data.tasks.filter(task => {
+    if (!task.notify) return false;
+    if (!task.allocated) return false;
+    if (task.deletedDates && task.deletedDates.includes(0)) return false;
+
+    // 繰り返し判定
+    const dowJst = new Date(now.getTime() + jstOffset * 60000).getUTCDay();
+    if (!isTaskForToday(task, dowJst, jstMin)) return false;
+
+    // 開始時刻が今の分と一致するか
+    const taskStart = task.start; // 分単位
+    return taskStart === todayJstMin;
+  });
+
+  if (tasksToNotify.length === 0) return;
+
+  // 登録済みサブスクリプション取得
+  const subsRaw = await env.KV.get('push_subscriptions');
+  if (!subsRaw) return;
+  const subs = JSON.parse(subsRaw);
+  if (subs.length === 0) return;
+
+  // VAPID秘密鍵取得（環境変数から）
+  const privateKeyB64 = env.VAPID_PRIVATE_KEY;
+  if (!privateKeyB64) { console.error('VAPID_PRIVATE_KEY not set'); return; }
+
+  // 各タスクを各サブスクリプションに送信
+  const deadSubs = [];
+  for (const task of tasksToNotify) {
+    for (const sub of subs) {
+      try {
+        await sendWebPush(sub, {
+          title: `⏰ ${task.title}`,
+          body:  '開始時刻になりました',
+          icon:  'https://mogmog11.github.io/ejector/icon-192.png',
+          badge: 'https://mogmog11.github.io/ejector/icon-192.png',
+          tag:   `ejector-${task.id}`,
+        }, privateKeyB64);
+      } catch(e) {
+        // 410 Gone = サブスクリプション無効 → 削除対象
+        if (e.status === 410) deadSubs.push(sub.endpoint);
+        console.error('Push failed:', e.message);
+      }
+    }
+  }
+
+  // 無効なサブスクリプションを削除
+  if (deadSubs.length > 0) {
+    const cleaned = subs.filter(s => !deadSubs.includes(s.endpoint));
+    await env.KV.put('push_subscriptions', JSON.stringify(cleaned));
+  }
+}
+
+function isTaskForToday(task, dowJst, jstMin) {
+  if (task.repeatMode === 'daily') return true;
+  if (task.repeatMode === 'weekday') return dowJst >= 1 && dowJst <= 5;
+  if (task.repeatMode === 'weekend') return dowJst === 0 || dowJst === 6;
+  if (task.repeatMode === 'custom')  return task.customDays.includes(dowJst);
+  if (task.repeatMode === 'none')    return true; // allocatedOffsetチェックはWorker側では省略
+  if (task.repeatMode === 'month-end') {
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 86400000);
+    return tomorrow.getUTCDate() === 1;
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Web Push 送信（VAPID署名付き）
+// ═══════════════════════════════════════════════════════
+async function sendWebPush(subscription, payload, privateKeyB64) {
+  const endpoint  = subscription.endpoint;
+  const p256dh    = subscription.keys.p256dh;
+  const auth      = subscription.keys.auth;
+
+  // JWTを生成
+  const jwt = await buildVapidJwt(endpoint, privateKeyB64);
+
+  // ペイロードを暗号化
+  const encrypted = await encryptPayload(JSON.stringify(payload), p256dh, auth);
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization':  `vapid t=${jwt},k=${VAPID_PUBLIC_KEY}`,
+      'Content-Type':   'application/octet-stream',
+      'Content-Encoding': 'aes128gcm',
+      'TTL':            '60',
+    },
+    body: encrypted,
+  });
+
+  if (!res.ok && res.status !== 201) {
+    const err = new Error(`Push failed: ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+}
+
+// ── VAPID JWT 生成 ──────────────────────────────────
+async function buildVapidJwt(endpoint, privateKeyB64) {
+  const url      = new URL(endpoint);
+  const audience = `${url.protocol}//${url.host}`;
+  const exp      = Math.floor(Date.now() / 1000) + 12 * 3600;
+
+  const header  = b64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
+  const payload = b64url(JSON.stringify({ aud: audience, exp, sub: VAPID_SUBJECT }));
+  const unsigned = `${header}.${payload}`;
+
+  // PKCS8形式の秘密鍵をインポート
+  const keyBytes  = base64ToBytes(privateKeyB64);
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8', keyBytes,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false, ['sign']
+  );
+
+  const sig = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    cryptoKey,
+    new TextEncoder().encode(unsigned)
+  );
+
+  return `${unsigned}.${b64url(sig)}`;
+}
+
+// ── ペイロード暗号化（RFC 8291 aes128gcm） ──────────
+async function encryptPayload(plaintext, p256dhB64, authB64) {
+  const encoder    = new TextEncoder();
+  const plaintextBytes = encoder.encode(plaintext);
+
+  // 受信者の公開鍵（p256dh）
+  const receiverPub = await crypto.subtle.importKey(
+    'raw', base64ToBytes(p256dhB64),
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true, []
+  );
+
+  // 送信者の鍵ペアを一時生成
+  const senderKeys = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true, ['deriveKey', 'deriveBits']
+  );
+  const senderPubRaw = new Uint8Array(await crypto.subtle.exportKey('raw', senderKeys.publicKey));
+
+  // auth secret と salt
+  const authBytes = base64ToBytes(authB64);
+  const salt      = crypto.getRandomValues(new Uint8Array(16));
+
+  // ECDH共有鍵
+  const sharedBits = await crypto.subtle.deriveBits(
+    { name: 'ECDH', public: receiverPub },
+    senderKeys.privateKey, 256
+  );
+
+  // HKDF で IKM (PRK) を導出
+  const ikm = await hkdf(
+    new Uint8Array(sharedBits), authBytes,
+    concat(encoder.encode('WebPush: info\x00'), receiverPub_raw(await crypto.subtle.exportKey('raw', receiverPub)), senderPubRaw),
+    32
+  );
+
+  // HKDF で CEK と nonce を導出
+  const cek   = await hkdf(ikm, salt, encoder.encode('Content-Encryption-Key\x01'), 16);
+  const nonce = await hkdf(ikm, salt, encoder.encode('Nonce\x01'), 12);
+
+  // AES-128-GCM で暗号化
+  const cekKey = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce, additionalData: new Uint8Array(0), tagLength: 128 },
+    cekKey,
+    concat(plaintextBytes, new Uint8Array([2])) // padding delimiter
+  ));
+
+  // aes128gcm record: salt(16) + recordSize(4) + keyIdLen(1) + keyId(senderPub 65) + ciphertext
+  const recordSize = new Uint8Array(4);
+  new DataView(recordSize.buffer).setUint32(0, 4096, false);
+
+  return concat(salt, recordSize, new Uint8Array([65]), senderPubRaw, ciphertext);
+}
+
+function receiverPub_raw(raw) { return new Uint8Array(raw); }
+
+async function hkdf(ikm, salt, info, length) {
+  const keyMaterial = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'HKDF', hash: 'SHA-256', salt, info },
+    keyMaterial, length * 8
+  );
+  return new Uint8Array(bits);
+}
+
+function concat(...arrays) {
+  const total = arrays.reduce((s, a) => s + a.length, 0);
+  const out   = new Uint8Array(total);
+  let offset  = 0;
+  for (const a of arrays) { out.set(a, offset); offset += a.length; }
+  return out;
+}
+
+function b64url(input) {
+  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input);
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+function base64ToBytes(b64) {
+  const b64std = b64.replace(/-/g,'+').replace(/_/g,'/');
+  const bin    = atob(b64std);
+  const bytes  = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+</textarea>
+          <button onclick="copyWorkerCode()" style="margin-top:6px; padding:6px 12px; background:var(--green); color:white; border-radius:6px; font-size:12px; font-weight:700;">コードをコピー</button>
+        </div>
+      </div>
+    </details>
+
+    <div class="input-group" style="margin-top:14px;">
+      <label>Worker URL</label>
+      <input type="text" id="workerUrlInput" class="input-field" placeholder="例: https://ejector.yourname.workers.dev">
+    </div>
+    <div class="input-group">
+      <label>パスワード（任意・省略可）</label>
+      <input type="password" id="workerSecretInput" class="input-field" placeholder="設定しない場合は空欄のままでOK">
+      <div style="font-size:11px; color:var(--ink3); margin-top:4px;">※ 初回接続時にWorkerへ登録されます。このデバイスのブラウザにのみ保存されます</div>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button onclick="disconnectSync()" style="flex:1; padding:12px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700;">切断</button>
+      <button onclick="connectSync()" style="flex:2; padding:12px; background:var(--green); color:white; border-radius:10px; font-weight:700;">接続する</button>
+    </div>
+
+    <!-- バックグラウンド通知 -->
+    <div style="margin-top:16px; padding:14px; background:var(--bg2); border-radius:12px;">
+      <div style="font-weight:700; font-size:13px; margin-bottom:8px;">🔔 バックグラウンド通知</div>
+      <div style="font-size:12px; color:var(--ink2); margin-bottom:10px; line-height:1.6;">
+        アプリを閉じていても、タスクの開始時刻にAndroidへ通知を送ります。<br>
+        ※ Workerに接続済みの状態で使用してください。
+      </div>
+      <div id="pushStatusMsg" style="font-size:12px; padding:8px 10px; border-radius:8px; margin-bottom:10px; display:none;"></div>
+      <div style="display:flex; gap:8px;">
+        <button onclick="subscribePush()" id="pushSubscribeBtn"
+          style="flex:1; padding:10px; background:var(--green); color:white; border-radius:10px; font-weight:700; font-size:13px;">
+          通知を有効にする
+        </button>
+        <button onclick="unsubscribePush()" id="pushUnsubscribeBtn"
+          style="flex:1; padding:10px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700; font-size:13px; display:none;">
+          通知を無効にする
+        </button>
+      </div>
+    </div>
+
+    <button onclick="closeSyncSettings()" style="width:100%; margin-top:10px; padding:10px; color:var(--ink3); font-weight:700;">閉じる</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════
+const DAYS_JP = ['日','月','火','水','木','金','土'];
+
+/** このデバイス固有ID（競合回避用） */
+const DEVICE_ID = (() => {
+  let id = localStorage.getItem('ejector_deviceId');
+  if (!id) { id = Math.random().toString(36).substr(2, 9); localStorage.setItem('ejector_deviceId', id); }
+  return id;
+})();
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let currentDayOffset = 0;
+let editingTaskId = null;
+let currentRange = { start: 360, end: 1440 };
+
+const DEFAULT_TASKS = [
+  { id: 1, title: '起床', start: 420, duration: 30, allocated: true, repeatMode: 'daily', customDays: [], doneDates: [] },
+  { id: 2, title: '仕事・作業', start: 600, duration: 180, allocated: true, repeatMode: 'weekday', customDays: [], doneDates: [] },
+  { id: 3, title: '就寝', start: 1380, duration: 60, allocated: true, repeatMode: 'daily', customDays: [], doneDates: [] },
+  { id: 4, title: '読書', duration: 20, allocated: false, repeatMode: 'none', customDays: [], doneDates: [] }
+];
+
+const state = { tasks: JSON.parse(JSON.stringify(DEFAULT_TASKS)) };
+
+// ══════════════════════════════════════════════
+//  DATE KEY ユーティリティ
+//  offset（今日から相対）→ 絶対日付キー YYYYMMDD
+// ══════════════════════════════════════════════
+function offsetToDateKey(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+
+function dateKeyToOffset(dateKey) {
+  const y = Math.floor(dateKey / 10000);
+  const m = Math.floor((dateKey % 10000) / 100) - 1;
+  const day = dateKey % 100;
+  const target = new Date(y, m, day);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  target.setHours(0,0,0,0);
+  return Math.round((target - today) / 86400000);
+}
+
+// 旧データ（相対offset整数）→ 新データ（絶対dateKey）へマイグレーション
+function migrateTaskDates() {
+  const isOldFormat = (v) => typeof v === 'number' && Math.abs(v) < 1000;
+  let changed = false;
+  state.tasks.forEach(task => {
+    // doneDates
+    if (task.doneDates) {
+      task.doneDates = task.doneDates.map(v => {
+        if (isOldFormat(v)) { changed = true; return offsetToDateKey(v); }
+        return v;
+      });
+    }
+    // deletedDates
+    if (task.deletedDates) {
+      task.deletedDates = task.deletedDates.map(v => {
+        if (isOldFormat(v)) { changed = true; return offsetToDateKey(v); }
+        return v;
+      });
+    }
+    // overrides
+    if (task.overrides) {
+      const newOv = {};
+      Object.entries(task.overrides).forEach(([k, v]) => {
+        if (isOldFormat(parseInt(k))) {
+          changed = true;
+          newOv[offsetToDateKey(parseInt(k))] = v;
+        } else {
+          newOv[k] = v;
+        }
+      });
+      task.overrides = newOv;
+    }
+    // allocatedOffset
+    if (task.allocatedOffset !== undefined && isOldFormat(task.allocatedOffset)) {
+      task.allocatedOffset = offsetToDateKey(task.allocatedOffset);
+      changed = true;
+    }
+    // createdOffset
+    if (task.createdOffset !== undefined && isOldFormat(task.createdOffset)) {
+      task.createdOffset = offsetToDateKey(task.createdOffset);
+      changed = true;
+    }
+  });
+  if (changed) saveToLocal();
+}
+
+
+function saveToLocal() {
+  localStorage.setItem('ejector_tasks', JSON.stringify(state.tasks));
+}
+
+function loadFromLocal() {
+  try {
+    const s = localStorage.getItem('ejector_tasks');
+    if (s) state.tasks = JSON.parse(s);
+  } catch(e) { /* デフォルトを使用 */ }
+}
+
+// ══════════════════════════════════════════════
+//  Cloudflare Workers KV 同期
+// ══════════════════════════════════════════════
+let syncCfg = { workerUrl: '', secret: '' };
+let lastPushTime = parseInt(localStorage.getItem('ejector_lastPush') || '0');
+let syncStatusVal = 'off';
+let isSyncing = false;
+
+function loadSyncConfig() {
+  syncCfg.workerUrl = localStorage.getItem('ejector_workerUrl') || '';
+  syncCfg.secret    = localStorage.getItem('ejector_secret')    || '';
+}
+
+function cfHeaders(extra = {}) {
+  const h = { 'Content-Type': 'application/json' };
+  if (syncCfg.secret) h['X-Secret'] = syncCfg.secret;
+  return { ...h, ...extra };
+}
+
+/** リモートからデータを取得 */
+async function pullFromBin() {
+  if (!syncCfg.workerUrl || isSyncing) return;
+  try {
+    const res = await fetch(syncCfg.workerUrl, { headers: cfHeaders() });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const record = await res.json();
+
+    if (!record || !record.tasks || !Array.isArray(record.tasks)) {
+      // リモートが空なのでローカルをアップロード
+      await pushToBin();
+      return;
+    }
+
+    const remoteTime   = record.updatedAt || 0;
+    const remoteDevice = record.deviceId  || '';
+
+    // 別デバイスの更新がローカルより新しければ反映
+    if (remoteDevice !== DEVICE_ID && remoteTime > lastPushTime) {
+      state.tasks = record.tasks;
+      saveToLocal();
+      renderAll();
+    }
+    showSyncStatus('ok');
+  } catch(e) {
+    console.error('CF Workers pull error:', e);
+    showSyncStatus('error');
+  }
+}
+
+/** ローカルデータをリモートへ送信 */
+async function pushToBin() {
+  if (!syncCfg.workerUrl) return;
+  if (isSyncing) return;
+  isSyncing = true;
+  showSyncStatus('syncing');
+  const now = Date.now();
+  try {
+    const res = await fetch(syncCfg.workerUrl, {
+      method: 'PUT',
+      headers: cfHeaders(),
+      body: JSON.stringify({ tasks: state.tasks, deviceId: DEVICE_ID, updatedAt: now })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    lastPushTime = now;
+    localStorage.setItem('ejector_lastPush', String(now));
+    showSyncStatus('ok');
+  } catch(e) {
+    console.error('CF Workers push error:', e);
+    showSyncStatus('error');
+  } finally {
+    isSyncing = false;
+  }
+}
+
+/** 状態を保存して同期 */
+function saveState() {
+  saveToLocal();
+  pushToBin();
+}
+
+function showSyncStatus(status) {
+  syncStatusVal = status;
+  const btn = document.getElementById('syncBtn');
+  const icons  = { off: '☁', syncing: '<span class="spin">↻</span>', ok: '✓', error: '✗' };
+  const colors = { off: 'var(--ink3)', syncing: 'var(--blue)', ok: 'var(--green)', error: 'var(--red)' };
+  if (btn) { btn.innerHTML = icons[status] || '☁'; btn.style.color = colors[status]; }
+
+  const badge = document.getElementById('syncStatusBadge');
+  if (badge) {
+    const labels = { off: '⊘ 未接続', syncing: '↻ 同期中...', ok: '✓ 接続済み', error: '✗ エラー（Worker URLを確認してください）' };
+    badge.textContent = labels[status];
+    badge.className   = `sync-badge ${status}`;
+  }
+}
+
+// ══════════════════════════════════════════════
+//  同期設定 UI
+// ══════════════════════════════════════════════
+function openSyncSettings() {
+  document.getElementById('workerUrlInput').value    = syncCfg.workerUrl;
+  document.getElementById('workerSecretInput').value = syncCfg.secret;
+  showSyncStatus(syncStatusVal);
+  document.getElementById('syncOverlay').style.display = 'flex';
+}
+function closeSyncSettings() { document.getElementById('syncOverlay').style.display = 'none'; }
+
+function copyWorkerCode() {
+  const code = document.getElementById('workerCodeBox').value;
+  navigator.clipboard.writeText(code).then(() => alert('コードをコピーしました！'));
+}
+
+async function connectSync() {
+  const workerUrl = document.getElementById('workerUrlInput').value.trim().replace(/\/$/, '');
+  const secret    = document.getElementById('workerSecretInput').value.trim();
+  if (!workerUrl) { alert('Worker URLを入力してください'); return; }
+
+  localStorage.setItem('ejector_workerUrl', workerUrl);
+  localStorage.setItem('ejector_secret',    secret);
+  syncCfg = { workerUrl, secret };
+
+  // 接続テスト（取得）
+  await pullFromBin();
+  if (syncStatusVal !== 'error') closeSyncSettings();
+}
+
+function disconnectSync() {
+  if (!confirm('同期を切断しますか？\nデータはこのデバイスに残ります。')) return;
+  localStorage.removeItem('ejector_workerUrl');
+  localStorage.removeItem('ejector_secret');
+  localStorage.removeItem('ejector_lastPush');
+  syncCfg = { workerUrl: '', secret: '' };
+  lastPushTime = 0;
+  showSyncStatus('off');
+  closeSyncSettings();
+}
+
+// ══════════════════════════════════════════════
+//  LOGIC
+// ══════════════════════════════════════════════
+function isTaskForToday(task, offset) {
+  const dk = offsetToDateKey(offset);
+
+  // 今日のみ削除されている場合は非表示
+  if (task.deletedDates && task.deletedDates.includes(dk)) return false;
+
+  if (!task.allocated) return false;
+
+  // 登録日より前のオフセットには表示しない
+  const created = task.createdOffset !== undefined ? task.createdOffset : 0;
+  if (dk < created) return false;
+
+  if (task.repeatMode === 'none') {
+    const ao = task.allocatedOffset !== undefined ? task.allocatedOffset : offsetToDateKey(0);
+    return ao === dk;
+  }
+
+  if (task.repeatMode === 'daily') return true;
+
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  const dow = d.getDay();
+
+  if (task.repeatMode === 'weekday')   return dow >= 1 && dow <= 5;
+  if (task.repeatMode === 'weekend')   return dow === 0 || dow === 6;
+  if (task.repeatMode === 'custom')    return task.customDays.includes(dow);
+  if (task.repeatMode === 'month-end') {
+    const next = new Date(d); next.setDate(d.getDate() + 1);
+    return next.getDate() === 1;
+  }
+  return false;
+}
+
+/** ★ バーチカルは起床〜就寝の間だけ */
+function getTimelineRange(dayTasks) {
+  const wake  = dayTasks.find(t => t.title.includes('起床'));
+  const sleep = dayTasks.find(t => t.title.includes('就寝'));
+  return {
+    start: wake  ? wake.start              : 360,
+    end:   sleep ? sleep.start + sleep.duration : 1440
+  };
+}
+
+// ══════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════
+function renderAll() {
+  const dayTasks = state.tasks.filter(t => isTaskForToday(t, currentDayOffset));
+  currentRange = getTimelineRange(dayTasks);
+
+  renderTimeline(dayTasks, currentRange);
+  renderLaterList();
+  updateDateDisplay();
+  renderWeekNav();
+
+  // あとでリストの長押し複製
+  document.querySelectorAll('.later-card[data-task-id]').forEach(card => {
+    const id = parseInt(card.getAttribute('data-task-id'));
+    setupLongPress(card, id);
+  });
+
+  const tw = document.getElementById('tlWrap');
+  if (currentDayOffset === 0) {
+    // 描画後に現在時刻行へスクロール
+    requestAnimationFrame(() => {
+      const nowRow = tw.querySelector('.tl-now-row');
+      if (nowRow) {
+        const offset = nowRow.offsetTop - tw.clientHeight / 3;
+        tw.scrollTop = Math.max(0, offset);
+      }
+    });
+  } else {
+    tw.scrollTop = 0;
+  }
+}
+
+function computeColumns(tasks) {
+  const sorted = [...tasks].sort((a, b) => a.start - b.start);
+  const cols = [];
+  const colMap = new Map();   // taskId -> 列番号
+  const spanMap = new Map();  // taskId -> そのタスクが属するグループの最大列数
+
+  sorted.forEach(task => {
+    const end = task.start + task.duration;
+    let placed = false;
+    for (let c = 0; c < cols.length; c++) {
+      if (cols[c] <= task.start) {
+        cols[c] = end;
+        colMap.set(task.id, c);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      colMap.set(task.id, cols.length);
+      cols.push(end);
+    }
+  });
+
+  // 各タスクが重なるグループで何列使うかを計算
+  sorted.forEach(task => {
+    const taskStart = task.start;
+    const taskEnd   = task.start + task.duration;
+    // 同じ時間帯に重なる全タスクを探す
+    let maxCol = 0;
+    sorted.forEach(other => {
+      if (other.start < taskEnd && other.start + other.duration > taskStart) {
+        maxCol = Math.max(maxCol, colMap.get(other.id) || 0);
+      }
+    });
+    spanMap.set(task.id, maxCol + 1); // 列数 = 最大列番号+1
+  });
+
+  return { colMap, spanMap, totalCols: cols.length };
+}
+
+function getTaskStart(task, offset) {
+  const dk = offsetToDateKey(offset);
+  if (task.overrides && task.overrides[dk] !== undefined) {
+    return task.overrides[dk].start;
+  }
+  return task.start;
+}
+
+const BLOCK_MIN_H = 52; // タスク行の最小高さpx
+const GAP_MIN_H   = 36; // 空き時間行の最小高さpx
+
+function renderTimeline(dayTasks, range) {
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = '';
+
+  dayTasks.sort((a, b) => getTaskStart(a, currentDayOffset) - getTaskStart(b, currentDayOffset));
+
+  const isMobile = window.innerWidth <= 768;
+  const MAX_COLS = isMobile ? 2 : 4;
+
+  const tasksWithStart = dayTasks.map(t => ({ ...t, start: getTaskStart(t, currentDayOffset) }));
+  const { colMap, spanMap } = computeColumns(tasksWithStart);
+
+  // グループ化：同じ開始時刻or重なりタスクをまとめる
+  // 重複しないシーケンシャルなイベント列を構築
+  let cursor = range.start;
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  let nowInserted = false;
+
+  // タスクをstart順に並べ、gap→taskの繰り返し
+  const events = []; // {type:'task'|'gap', ...}
+  let lastEnd = range.start;
+
+  // まずグループ（同時間帯に重なるタスク群）を作る
+  const groups = [];
+  let i = 0;
+  const sorted = [...tasksWithStart].sort((a,b) => a.start - b.start);
+  while (i < sorted.length) {
+    const grp = [sorted[i]];
+    let grpEnd = sorted[i].start + sorted[i].duration;
+    i++;
+    while (i < sorted.length && sorted[i].start < grpEnd) {
+      grpEnd = Math.max(grpEnd, sorted[i].start + sorted[i].duration);
+      grp.push(sorted[i]);
+      i++;
+    }
+    groups.push({ tasks: grp, start: grp[0].start, end: grpEnd });
+  }
+
+  // gap → group → gap … の順で描画
+  let pos = range.start;
+  const renderItems = [];
+  groups.forEach(grp => {
+    if (grp.start > pos) renderItems.push({ type: 'gap', start: pos, end: grp.start });
+    renderItems.push({ type: 'group', ...grp });
+    pos = grp.end;
+  });
+  if (pos < range.end) renderItems.push({ type: 'gap', start: pos, end: range.end });
+
+  renderItems.forEach(item => {
+    if (item.type === 'gap') {
+      // 現在時刻ラインを挿入（gap内）
+      if (!nowInserted && currentDayOffset === 0 && nowMin >= item.start && nowMin <= item.end) {
+        nowInserted = true;
+        if (nowMin > item.start) appendGapRow(tl, item.start, nowMin, false);
+        appendNowRow(tl);
+        if (nowMin < item.end) appendGapRow(tl, nowMin, item.end, true);
+        return;
+      }
+      // 過去の空き時間（今日かつ終了が現在時刻以前）
+      if (currentDayOffset === 0 && item.end <= nowMin) return;
+      appendGapRow(tl, item.start, item.end, true);
+    } else {
+      // nowMin がグループ開始前 → グループの前に now ライン
+      if (!nowInserted && currentDayOffset === 0 && nowMin <= item.start) {
+        nowInserted = true;
+        appendNowRow(tl);
+      }
+      // nowMin がグループ内部 → プログレス背景で表現するので now ラインは挿入しない
+      if (!nowInserted && currentDayOffset === 0 && nowMin > item.start && nowMin < item.end) {
+        nowInserted = true; // ライン挿入はスキップ、プログレスで代替
+      }
+      appendGroupRow(tl, item.tasks, colMap, spanMap, MAX_COLS);
+    }
+  });
+
+  if (!nowInserted && currentDayOffset === 0) appendNowRow(tl);
+}
+
+function appendNowRow(tl) {
+  const row = document.createElement('div');
+  row.className = 'tl-now-row';
+  row.innerHTML = `<div class="tl-now-line"></div>`;
+  tl.appendChild(row);
+}
+
+function appendGapRow(tl, startMin, endMin, showChips) {
+  // 今日かつ完全に過去の空き時間は描画しない（スマホ含む全環境で確実にガード）
+  if (currentDayOffset === 0) {
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    if (endMin <= nowMin) return;        // 完全に過去 → スキップ
+    if (startMin < nowMin) startMin = nowMin; // 途中から始まる場合は現在時刻に切り詰め
+  }
+
+  const dur = endMin - startMin;
+  if (dur < 3) return;
+
+  const actualDur = endMin - startMin;
+  const dk = offsetToDateKey(currentDayOffset);
+  const fittingTasks = showChips ? state.tasks.filter(t => {
+    if (t.allocated) return false;
+    if (t.duration > actualDur) return false;
+    if (t.doneDates.includes(dk)) return false;
+    if (t.deletedDates && t.deletedDates.includes(dk)) return false;
+    if (t.repeatMode === 'none') return true;
+    return isRepeatMatchDay(t, currentDayOffset);
+  }) : [];
+
+  const h = Math.floor(startMin/60), m = startMin%60;
+  const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  const durH = Math.floor(dur/60), durM = dur%60;
+  const durStr = durH > 0 ? `${durH}時間${durM>0?durM+'分':''}空き` : `${durM}分 空き`;
+
+  const chipsHTML = fittingTasks.map(t =>
+    `<div class="gap-task-chip" onclick="event.stopPropagation();openGapTaskEdit(${t.id},${startMin})">＋ ${t.title}（${t.duration}分）</div>`
+  ).join('');
+
+  const row = document.createElement('div');
+  row.className = 'tl-row tl-gap';
+  row.style.minHeight = GAP_MIN_H + 'px';
+
+  const gap = document.createElement('div');
+  gap.className = 'free-gap';
+  gap.style.flex = '1';
+
+  if (fittingTasks.length > 0) {
+    gap.style.flexDirection = 'column';
+    gap.style.alignItems = 'flex-start';
+    gap.innerHTML = `
+      <div class="gap-header">
+        <div style="font-size:14px;font-weight:700;">${durStr}</div>
+        <div style="font-size:12px;opacity:.65;margin-top:2px;">${timeStr}〜</div>
+      </div>
+      <div class="gap-tasks">${chipsHTML}</div>`;
+  } else {
+    gap.style.flexDirection = 'column';
+    gap.style.alignItems = 'flex-start';
+    gap.innerHTML = `
+      <div class="gap-header">
+        <div style="font-size:14px;font-weight:700;">${durStr}</div>
+        <div style="font-size:12px;opacity:.65;margin-top:2px;">${timeStr}〜</div>
+      </div>`;
+  }
+
+  gap.ondragover  = e => { e.preventDefault(); gap.classList.add('drag-over'); };
+  gap.ondragleave = () => gap.classList.remove('drag-over');
+  gap.ondrop = e => {
+    e.preventDefault(); gap.classList.remove('drag-over');
+    const task = state.tasks.find(t => t.id == e.dataTransfer.getData('taskId'));
+    if (task) {
+      task.start = startMin; task.allocated = true;
+      if (task.repeatMode === 'none') task.allocatedOffset = offsetToDateKey(currentDayOffset);
+      saveState(); renderAll();
+    }
+  };
+
+  const timeCol = makeTimeCol(timeStr);
+  const contentCol = document.createElement('div');
+  contentCol.className = 'tl-content-col';
+  contentCol.appendChild(gap);
+  row.appendChild(timeCol);
+  row.appendChild(contentCol);
+  tl.appendChild(row);
+}
+
+function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = false) {
+  const row = document.createElement('div');
+  row.className = 'tl-row tl-task';
+  row.style.minHeight = BLOCK_MIN_H + 'px';
+
+  const minStart = Math.min(...tasks.map(t => t.start));
+  const h = Math.floor(minStart/60), m = minStart%60;
+  const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+
+  const timeCol = makeTimeCol(timeStr);
+  const contentCol = document.createElement('div');
+  contentCol.className = 'tl-content-col';
+
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+
+  const sorted = [...tasks].sort((a,b) => (colMap.get(a.id)||0) - (colMap.get(b.id)||0));
+  sorted.forEach(task => {
+    const origTask = state.tasks.find(t => t.id === task.id);
+    if (!origTask) return;
+    const done      = origTask.doneDates.includes(offsetToDateKey(currentDayOffset));
+    const isSpecial = origTask.title.includes('起床') || origTask.title.includes('就寝');
+
+    // 進行中かどうかを判定してプログレスを計算
+    const taskStart = task.start;
+    const taskEnd   = task.start + origTask.duration;
+    const isInProgress = currentDayOffset === 0 && nowMin > taskStart && nowMin < taskEnd;
+    // 終了時刻を過ぎている場合（完了・未完了問わず）100%塗る
+    const isPassed = currentDayOffset === 0 && nowMin >= taskEnd;
+    const progress = isInProgress
+      ? Math.round(((nowMin - taskStart) / origTask.duration) * 100)
+      : isPassed ? 100 : 0;
+    const showProgress = isInProgress || isPassed;
+
+    const el = document.createElement('div');
+    el.className = `block ${done?'completed':''} ${isSpecial?'special':''} ${showProgress?'in-progress':''}`;
+    if (showProgress) {
+      el.style.setProperty('--progress', progress + '%');
+    }
+    el.draggable = !isSpecial;
+    if (!isSpecial) el.ondragstart = e => e.dataTransfer.setData('taskId', origTask.id);
+    el.onclick = () => openEdit(origTask.id);
+    if (!isSpecial) setupLongPress(el, origTask.id);
+
+    const cbHTML = isSpecial ? '' :
+      `<input type="checkbox" class="task-checkbox" ${done?'checked':''} onclick="event.stopPropagation();toggleDone(${origTask.id})">`;
+
+    el.innerHTML = `${cbHTML}
+      <div style="flex:1;overflow:hidden;min-width:0;">
+        <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${origTask.title}${origTask.repeatMode!=='none'?' <small style="opacity:0.6">🔁</small>':''}
+        </div>
+        <div style="font-size:11px;color:var(--ink3);">${origTask.duration}分${renderSubtaskProgress(origTask, currentDayOffset)}</div>
+      </div>`;
+    contentCol.appendChild(el);
+  });
+
+  row.appendChild(timeCol);
+  row.appendChild(contentCol);
+  tl.appendChild(row);
+}
+
+function makeTimeCol(timeStr) {
+  const col = document.createElement('div');
+  col.className = 'tl-time-col';
+  col.innerHTML = `<div class="tl-time-label">${timeStr}</div><div class="tl-vline"></div>`;
+  return col;
+}
+
+// 使わなくなった関数（互換のため残す）
+function positionBlocksByColumn() {}
+
+// ──── タッチドラッグ（スマホでリストからタイムラインへ） ────
+let touchDragTaskId = null;
+let touchClone      = null;
+
+function onTouchStart(e) {
+  // タイムライン上のブロックはタッチ移動不要（タップで編集）
+}
+
+function enableLaterTouchDrag() {
+  // later-listへの委任
+  document.getElementById('later-list').addEventListener('touchstart', e => {
+    const card = e.target.closest('.later-card');
+    if (!card) return;
+    touchDragTaskId = parseInt(card.getAttribute('data-task-id'));
+    touchClone = card.cloneNode(true);
+    touchClone.style.cssText = `position:fixed;opacity:0.7;pointer-events:none;z-index:9999;width:${card.offsetWidth}px;`;
+    document.body.appendChild(touchClone);
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!touchDragTaskId) return;
+    const t = e.touches[0];
+    if (touchClone) {
+      touchClone.style.left = (t.clientX - 40) + 'px';
+      touchClone.style.top  = (t.clientY - 20) + 'px';
+    }
+    // ハイライト
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    document.querySelectorAll('.free-gap').forEach(g => g.classList.remove('drag-over'));
+    const gap = el && el.closest('.free-gap');
+    if (gap) gap.classList.add('drag-over');
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!touchDragTaskId) return;
+    if (touchClone) { touchClone.remove(); touchClone = null; }
+    const t = e.changedTouches[0];
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    const gap = el && el.closest('.free-gap');
+    if (gap) {
+      // gapのtopからstart時刻を逆算
+      const topPx  = parseInt(gap.style.top);
+      const start  = currentRange.start + topPx;
+      const task   = state.tasks.find(tk => tk.id === touchDragTaskId);
+      if (task) {
+        task.start = start; task.allocated = true;
+        if (task.repeatMode === 'none') task.allocatedOffset = offsetToDateKey(currentDayOffset);
+        saveState(); renderAll();
+      }
+    }
+    document.querySelectorAll('.free-gap').forEach(g => g.classList.remove('drag-over'));
+    touchDragTaskId = null;
+  });
+}
+
+function isRepeatMatchDay(task, offset) {
+  if (task.repeatMode === 'daily') return true;
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  const dow = d.getDay();
+  if (task.repeatMode === 'weekday')   return dow >= 1 && dow <= 5;
+  if (task.repeatMode === 'weekend')   return dow === 0 || dow === 6;
+  if (task.repeatMode === 'custom')    return task.customDays.includes(dow);
+  if (task.repeatMode === 'month-end') {
+    const next = new Date(d); next.setDate(d.getDate() + 1);
+    return next.getDate() === 1;
+  }
+  return false;
+}
+
+// startMin/endMin: 分単位の開始・終了
+// topPx/heightPx: absolute配置のpx値
+
+// 空き時間のタスクチップをタップ → 時間を設定した状態で編集モーダルを開く
+function openGapTaskEdit(taskId, gapStart) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  editingTaskId = taskId;
+  document.getElementById('editTitle').value = task.title;
+  document.getElementById('editDur').value   = task.duration;
+  document.getElementById('editRepeatMode').value = task.repeatMode;
+  toggleRepeatUI(task.repeatMode, 'editCustomDays');
+
+  // 空き時間の開始時刻をプリセット
+  const hv = Math.floor(gapStart / 60), mv = Math.round((gapStart % 60) / 5) * 5 % 60;
+  document.getElementById('editTimeH').value = hv;
+  document.getElementById('editTimeM').value = mv;
+  document.getElementById('editTimeBox').style.display  = 'block';
+  document.getElementById('moveLaterBtn').style.display = 'none';
+  document.getElementById('editOverlay').style.display  = 'flex';
+}
+
+function renderLaterList() {
+  const dk = offsetToDateKey(currentDayOffset);
+  const created_dk = offsetToDateKey(currentDayOffset); // 登録日比較用
+  const later = state.tasks.filter(t => {
+    if (t.allocated) return false;
+    if (t.deletedDates && t.deletedDates.includes(dk)) return false;
+    const created = t.createdOffset !== undefined ? t.createdOffset : 0;
+    if (dk < created) return false;
+    if (t.repeatMode !== 'none') return isRepeatMatchDay(t, currentDayOffset);
+    if (t.createdOffset !== undefined) return dk === t.createdOffset;
+    return true;
+  });
+  const container = document.getElementById('later-list');
+  const repeatLabel = { daily:'毎日', weekday:'平日', weekend:'休日', 'month-end':'月末', custom:'曜日指定' };
+
+  const sorted = [...later].sort((a, b) => {
+    const aDone = a.doneDates.includes(dk) ? 1 : 0;
+    const bDone = b.doneDates.includes(dk) ? 1 : 0;
+    return aDone - bDone;
+  });
+
+  container.innerHTML = sorted.map(t => {
+    const done = t.doneDates.includes(dk);
+    const isRepeat = t.repeatMode !== 'none';
+    const repeatBadge = isRepeat
+      ? `<span class="later-repeat-badge">🔁 ${repeatLabel[t.repeatMode] || t.repeatMode}</span>`
+      : '';
+    return `
+      <div class="later-card ${done ? 'completed' : ''} ${isRepeat ? 'repeat' : ''}" draggable="true" data-task-id="${t.id}"
+           ondragstart="event.dataTransfer.setData('taskId', ${t.id})" onclick="openEdit(${t.id})">
+        <input type="checkbox" class="task-checkbox" ${done ? 'checked' : ''}
+               onclick="event.stopPropagation(); toggleDone(${t.id})">
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.title}</div>
+          <div style="font-size:11px; color:var(--ink3); display:flex; gap:6px; align-items:center; margin-top:2px;">
+            <span>${t.duration}分</span>${repeatBadge}
+          </div>
+        </div>
+        <div style="color:var(--border2); font-size:20px; flex-shrink:0;">⠿</div>
+      </div>`;
+  }).join('') || '<div style="text-align:center; color:var(--ink4); padding:40px;">リストは空です</div>';
+}
+
+// ══════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════
+function toggleRepeatUI(val, id = 'customDays') {
+  document.getElementById(id).style.display = val === 'custom' ? 'block' : 'none';
+}
+
+function togglePlacementUI(repeatVal) {
+  const box = document.getElementById('placementBox');
+  const timeBox = document.getElementById('addTimeBox');
+  if (!box) return;
+  const show = repeatVal !== 'none';
+  box.style.display = show ? 'block' : 'none';
+  // タイムラインが選択されている場合のみ開始時間を表示
+  const placement = document.getElementById('taskPlacement').value;
+  if (timeBox) timeBox.style.display = (show && placement === 'timeline') ? 'block' : 'none';
+  // デフォルトを現在時刻に設定
+  if (show && timeBox) {
+    const now = new Date();
+    const addH = document.getElementById('addTimeH');
+    const addM = document.getElementById('addTimeM');
+    if (addH) addH.value = now.getHours();
+    if (addM) {
+      const rounded = Math.round(now.getMinutes() / 5) * 5 % 60;
+      addM.value = rounded;
+    }
+  }
+}
+
+function addTask() {
+  const title      = document.getElementById('taskTitle').value.trim();
+  const dur        = parseInt(document.getElementById('taskDur').value) || 30;
+  const repeatMode = document.getElementById('taskRepeatMode').value;
+  const placement  = document.getElementById('taskPlacement').value; // 'timeline' or 'later'
+  if (!title) return;
+
+  const customDays = [];
+  if (repeatMode === 'custom') {
+    document.querySelectorAll('#customDays input:checked').forEach(i => customDays.push(parseInt(i.value)));
+  }
+
+  const newTask = { id: Date.now(), title, duration: dur, allocated: false, repeatMode, customDays, doneDates: [], createdOffset: offsetToDateKey(currentDayOffset) };
+
+  if (repeatMode !== 'none' && placement === 'timeline') {
+    const ah = parseInt(document.getElementById('addTimeH')?.value) || 8;
+    const am = parseInt(document.getElementById('addTimeM')?.value) || 0;
+    newTask.allocated = true; newTask.start = ah * 60 + am;
+  } else if (repeatMode !== 'none' && placement === 'later') {
+    // 繰り返し × あとで → allocated=false のまま（終日タスクとしてリストに常駐）
+    newTask.allocated = false;
+  }
+  // repeatMode=none の場合は常にあとでリスト
+
+  state.tasks.push(newTask);
+  document.getElementById('taskTitle').value = '';
+  document.getElementById('taskRepeatMode').value = 'none';
+  document.getElementById('taskPlacement').value = 'timeline';
+  // timeline ラジオをデフォルトに戻す
+  const tlRadio = document.querySelector('input[name="taskPlacementR"][value="timeline"]');
+  if (tlRadio) tlRadio.checked = true;
+  toggleRepeatUI('none');
+  togglePlacementUI('none');
+
+  saveState();
+  renderAll();
+  // 繰り返し×あとで or 繰り返しなし → リストへ
+  switchTab((newTask.allocated) ? 'main' : 'later');
+}
+
+function toggleDone(id) {
+  const task = state.tasks.find(t => t.id === id);
+  if (!task) return;
+  const dk = offsetToDateKey(currentDayOffset);
+  const idx = task.doneDates.indexOf(dk);
+  if (idx > -1) task.doneDates.splice(idx, 1);
+  else task.doneDates.push(dk);
+  saveState();
+  renderAll();
+}
+
+function switchTab(tab) {
+  const app = document.getElementById('app');
+  app.classList.remove('show-later', 'show-input', 'show-report');
+  const btns = document.querySelectorAll('.tab-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  if (tab === 'later')        { app.classList.add('show-later');  btns[1].classList.add('active'); }
+  else if (tab === 'input')   { app.classList.add('show-input');  btns[2].classList.add('active'); }
+  else if (tab === 'report')  {
+    app.classList.add('show-report'); btns[3].classList.add('active');
+    renderReport();
+  }
+  else { btns[0].classList.add('active'); }
+}
+
+// ══════════════════════════════════════════════
+//  EDIT DIALOG
+// ══════════════════════════════════════════════
+function openEdit(id) {
+  const task = state.tasks.find(t => t.id === id);
+  if (!task) return;
+  editingTaskId = id;
+  document.getElementById('editTitle').value = task.title;
+  document.getElementById('editDur').value   = task.duration;
+  document.getElementById('editRepeatMode').value = task.repeatMode;
+  toggleRepeatUI(task.repeatMode, 'editCustomDays');
+  if (task.repeatMode === 'custom') {
+    document.querySelectorAll('#editCustomDays input').forEach(c => c.checked = task.customDays.includes(parseInt(c.value)));
+  }
+  if (task.allocated || task.repeatMode !== 'none') {
+    const s = getTaskStart(task, currentDayOffset);
+    const hv = Math.floor((s || 0) / 60), mv = (s || 0) % 60;
+    document.getElementById('editTimeH').value = hv;
+    document.getElementById('editTimeM').value = Math.round(mv / 5) * 5 % 60;
+    document.getElementById('editTimeBox').style.display  = 'block';
+    document.getElementById('moveLaterBtn').style.display = 'block';
+    document.getElementById('moveLaterBtn').textContent = task.repeatMode !== 'none' ? '「あとで」に移動' : '「あとで」に戻す';
+    document.getElementById('editNotifyBox').style.display = 'block';
+  } else {
+    document.getElementById('editTimeBox').style.display  = 'none';
+    document.getElementById('moveLaterBtn').style.display = 'none';
+    document.getElementById('editNotifyBox').style.display = 'none';
+  }
+  // 通知チェックボックスの状態を反映
+  document.getElementById('editNotify').checked = !!task.notify;
+  document.getElementById('notifyPermissionMsg').style.display = 'none';
+  // サブタスクを描画
+  document.getElementById('subtaskInput').value = '';
+  renderSubtaskList(task);
+  document.getElementById('editOverlay').style.display = 'flex';
+}
+
+function closeEdit() { document.getElementById('editOverlay').style.display = 'none'; }
+
+// 繰り返し変更の保留データ
+let pendingRepeatChange = null;
+
+function closeRepeatConfirm() {
+  document.getElementById('repeatConfirmOverlay').style.display = 'none';
+  pendingRepeatChange = null;
+}
+
+function applyRepeatChange(mode) {
+  if (!pendingRepeatChange) return;
+  const { task, newStart, fromLater } = pendingRepeatChange;
+
+  if (mode === 'today') {
+    if (fromLater) {
+      const todayOnly = {
+        id: Date.now(),
+        title: task.title,
+        duration: task.duration,
+        allocated: true,
+        start: newStart,
+        repeatMode: 'none',
+        allocatedOffset: offsetToDateKey(currentDayOffset),
+        createdOffset: offsetToDateKey(currentDayOffset),
+        customDays: [],
+        doneDates: [],
+        notify: task.notify || false,
+      };
+      state.tasks.push(todayOnly);
+    } else {
+      if (!task.overrides) task.overrides = {};
+      task.overrides[offsetToDateKey(currentDayOffset)] = { start: newStart };
+    }
+  } else {
+    task.start = newStart;
+    task.allocated = true;
+    task.overrides = {};
+    if (fromLater) {
+      task.createdOffset = offsetToDateKey(currentDayOffset);
+    }
+  }
+
+  closeRepeatConfirm();
+  closeEdit();
+  saveState();
+  renderAll();
+}
+
+function saveEdit() {
+  const task = state.tasks.find(t => t.id === editingTaskId);
+  if (!task) return;
+
+  const newTitle   = document.getElementById('editTitle').value;
+  const newDur     = parseInt(document.getElementById('editDur').value) || 10;
+  const newRepeat  = document.getElementById('editRepeatMode').value;
+  const newCustom  = newRepeat === 'custom'
+    ? Array.from(document.querySelectorAll('#editCustomDays input:checked')).map(i => parseInt(i.value))
+    : [];
+  const hv = parseInt(document.getElementById('editTimeH').value) || 0;
+  const mv = parseInt(document.getElementById('editTimeM').value) || 0;
+  const newStart = hv * 60 + mv;
+
+  // 繰り返しタスクの時間変更検出
+  const isRepeat        = task.repeatMode !== 'none';
+  const wasAllocated    = task.allocated;
+  const timeChanged     = newStart !== (task.start || 0);
+  const settingsChanged = newTitle !== task.title || newDur !== task.duration || newRepeat !== task.repeatMode;
+
+  // あとでリストからタイムラインへ初めて配置する場合 → 確認モーダルを出す
+  if (isRepeat && !wasAllocated) {
+    pendingRepeatChange = { task, newStart, fromLater: true };
+    const h = Math.floor(newStart/60), m = newStart%60;
+    const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    document.getElementById('repeatConfirmMsg').textContent =
+      `「${task.title}」を ${timeStr} に配置します。今日だけですか？それとも今後すべての日に反映しますか？`;
+    document.getElementById('repeatConfirmOverlay').style.display = 'flex';
+    task.title    = newTitle;
+    task.duration = newDur;
+    task.customDays = newCustom;
+    return;
+  }
+
+  // すでにタイムラインにある繰り返しタスクの時間変更
+  if (isRepeat && wasAllocated && timeChanged && !settingsChanged) {
+    pendingRepeatChange = { task, newStart, fromLater: false };
+    const h = Math.floor(newStart/60), m = newStart%60;
+    const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    document.getElementById('repeatConfirmMsg').textContent =
+      `「${task.title}」の開始時間を ${timeStr} に変更します。今日だけ変更しますか？それとも今後すべての日に反映しますか？`;
+    document.getElementById('repeatConfirmOverlay').style.display = 'flex';
+    return;
+  }
+
+  // 通常保存
+  task.title      = newTitle;
+  task.duration   = newDur;
+  task.repeatMode = newRepeat;
+  task.customDays = newCustom;
+  task.notify     = document.getElementById('editNotify').checked;
+  if (task.allocated || task.repeatMode !== 'none') {
+    task.allocated = true;
+    if (task.repeatMode === 'none') {
+      // 繰り返しなし：task.start を直接更新
+      task.start = newStart;
+      task.allocatedOffset = offsetToDateKey(currentDayOffset);
+    } else if (timeChanged) {
+      // 繰り返しあり＋時間変更：全日変更として task.start を更新
+      // （タイトル等と同時変更のケースは「今後すべて」扱いとする）
+      task.start = newStart;
+      task.overrides = {}; // 既存オーバーライドをクリア
+    }
+  }
+  if (!task.allocated && document.getElementById('editTimeBox').style.display !== 'none') {
+    task.start     = newStart;
+    task.allocated = true;
+    task.allocatedOffset = offsetToDateKey(currentDayOffset);
+  }
+  closeEdit(); saveState(); renderAll();
+}
+
+function deleteTask() {
+  const task = state.tasks.find(t => t.id === editingTaskId);
+  if (!task) return;
+
+  if (task.repeatMode !== 'none') {
+    // 繰り返しタスク → 確認モーダル
+    document.getElementById('deleteConfirmMsg').textContent =
+      `「${task.title}」は繰り返しタスクです。今日のみ削除しますか？それともすべての日から削除しますか？`;
+    // 繰り返しタスクは常に「今日のみ削除」を表示
+    document.getElementById('deleteTodayBtn').style.display = 'block';
+    document.getElementById('deleteConfirmOverlay').style.display = 'flex';
+  } else {
+    // 通常タスク → 即削除
+    state.tasks = state.tasks.filter(t => t.id !== editingTaskId);
+    closeEdit(); saveState(); renderAll();
+  }
+}
+
+function closeDeleteConfirm() {
+  document.getElementById('deleteConfirmOverlay').style.display = 'none';
+}
+
+function applyDelete(mode) {
+  const task = state.tasks.find(t => t.id === editingTaskId);
+  if (!task) return;
+
+  if (mode === 'today') {
+    if (!task.deletedDates) task.deletedDates = [];
+    task.deletedDates.push(offsetToDateKey(currentDayOffset));
+  } else {
+    // すべて削除
+    state.tasks = state.tasks.filter(t => t.id !== editingTaskId);
+  }
+
+  closeDeleteConfirm();
+  closeEdit();
+  saveState();
+  renderAll();
+}
+
+function moveToLaterFromEdit() {
+  const task = state.tasks.find(t => t.id === editingTaskId);
+  if (!task) return;
+  if (task.repeatMode !== 'none') {
+    // 繰り返しタスク → allocated=false にするだけ（repeatModeは維持）
+    task.allocated = false;
+    task.start = null;
+    task.overrides = {};
+  } else {
+    task.allocated = false;
+    task.repeatMode = 'none';
+    task.start = null;
+  }
+  closeEdit(); saveState(); renderAll();
+}
+
+// ══════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════
+function changeDate(dir) { currentDayOffset += dir; renderAll(); }
+
+function goToday() { currentDayOffset = 0; renderAll(); }
+
+function goOffset(offset) { currentDayOffset = offset; renderAll(); }
+
+function renderWeekNav() {
+  ['weekDays', 'weekDaysMobile'].forEach(containerId => {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    const today = new Date();
+    for (let i = currentDayOffset - 3; i <= currentDayOffset + 3; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const dow = d.getDay();
+      const isToday  = i === 0;
+      const isActive = i === currentDayOffset;
+
+      const btn = document.createElement('button');
+      let cls = 'week-day-btn';
+      if (isActive) cls += ' active';
+      else if (isToday) cls += ' today-marker';
+      if (dow === 0) cls += ' sun';
+      if (dow === 6) cls += ' sat';
+      btn.className = cls;
+      btn.innerHTML = `<span class="wday-label">${['日','月','火','水','木','金','土'][dow]}</span><span class="day-num">${d.getDate()}</span>`;
+      btn.onclick   = () => goOffset(i);
+      container.appendChild(btn);
+    }
+  });
+}
+
+function updateDateDisplay() {
+  const d = new Date(); d.setDate(d.getDate() + currentDayOffset);
+  document.getElementById('currentDateDisplay').textContent =
+    currentDayOffset === 0 ? '今日' : `${d.getMonth()+1}/${d.getDate()}(${DAYS_JP[d.getDay()]})`;
+}
+
+async function manualPull() {
+  const btn = document.getElementById('pullBtn');
+  btn.style.animation = 'spin 0.8s linear infinite';
+  btn.style.color = 'var(--green)';
+  await pullFromBin();
+  btn.style.animation = '';
+  btn.style.color = '';
+}
+
+function startAutoSync() {
+  if (!syncCfg.workerUrl) return;
+  // 30秒ごとに自動同期
+  setInterval(async () => {
+    if (!document.hidden) await pullFromBin();
+  }, 30000);
+}
+
+let _lastMinute = -1;
+// 通知済みを記録（同じ分に2回鳴らさないため）
+const _notifiedKeys = new Set();
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toTimeString().split(' ')[0];
+  const min = now.getHours() * 60 + now.getMinutes();
+  if (min !== _lastMinute) {
+    _lastMinute = min;
+
+    // 進行中ブロックのプログレスを更新
+    document.querySelectorAll('.block.in-progress').forEach(el => {
+      const pct = parseFloat(el.style.getPropertyValue('--progress')) || 0;
+      el.style.setProperty('--progress', Math.min(pct + 1, 100) + '%');
+    });
+
+    // 通知チェック（今日のタスクのみ）
+    if (currentDayOffset === 0 && Notification.permission === 'granted') {
+      const dayTasks = state.tasks.filter(t => isTaskForToday(t, 0));
+      dayTasks.forEach(task => {
+        if (!task.notify) return;
+        const taskStart = getTaskStart(task, 0);
+        const key = `${task.id}-${taskStart}`;
+        if (taskStart === min && !_notifiedKeys.has(key)) {
+          _notifiedKeys.add(key);
+          new Notification(`⏰ ${task.title}`, {
+            body: '開始時刻になりました',
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            tag: key, // 同じタスクの重複通知を防ぐ
+          });
+        }
+      });
+    }
+  }
+}
+
+async function handleNotifyToggle(checked) {
+  if (!checked) {
+    document.getElementById('notifyPermissionMsg').style.display = 'none';
+    return;
+  }
+  if (!('Notification' in window)) {
+    document.getElementById('notifyPermissionMsg').textContent = 'このブラウザは通知に対応していません。';
+    document.getElementById('notifyPermissionMsg').style.display = 'block';
+    document.getElementById('editNotify').checked = false;
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    document.getElementById('notifyPermissionMsg').style.display = 'none';
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    document.getElementById('notifyPermissionMsg').style.display = 'block';
+    document.getElementById('editNotify').checked = false;
+    return;
+  }
+  // 未決定 → 許可を求める
+  const result = await Notification.requestPermission();
+  if (result !== 'granted') {
+    document.getElementById('notifyPermissionMsg').style.display = 'block';
+    document.getElementById('editNotify').checked = false;
+  } else {
+    document.getElementById('notifyPermissionMsg').style.display = 'none';
+  }
+}
+
+// ══════════════════════════════════════════════
+//  REPORT
+// ══════════════════════════════════════════════
+let reportWeekOffset = 0; // 0=今週, -1=先週...
+
+function changeReportWeek(dir) {
+  reportWeekOffset += dir;
+  renderReport();
+}
+
+// 指定weekOffset週の月〜日のdayOffsetを返す
+function getWeekDayOffsets(weekOffset) {
+  const today = new Date();
+  const dow = today.getDay(); // 0=日
+  // 今週の月曜を基準
+  const mondayDelta = dow === 0 ? -6 : 1 - dow;
+  const offsets = [];
+  for (let d = 0; d < 7; d++) {
+    const dayDelta = mondayDelta + weekOffset * 7 + d;
+    // dayOffsetはtodayからの相対日数
+    offsets.push(dayDelta);
+  }
+  return offsets; // [月, 火, 水, 木, 金, 土, 日] のoffset
+}
+
+function renderReport() {
+  const offsets = getWeekDayOffsets(reportWeekOffset);
+  const today = new Date();
+
+  // 週ラベル
+  const mon = new Date(today); mon.setDate(today.getDate() + offsets[0]);
+  const sun = new Date(today); sun.setDate(today.getDate() + offsets[6]);
+  document.getElementById('reportWeekLabel').textContent =
+    `${mon.getMonth()+1}/${mon.getDate()}（月）〜 ${sun.getMonth()+1}/${sun.getDate()}（日）`;
+
+  renderHabitTracker(offsets);
+  renderTimeGraph(offsets);
+  renderWeeklyReview(offsets);
+}
+
+function renderHabitTracker(offsets) {
+  const today = new Date();
+  const todayOffset = 0;
+  const DAYS = ['月','火','水','木','金','土','日'];
+
+  // 繰り返しタスクのみ対象
+  const habitTasks = state.tasks.filter(t => t.repeatMode !== 'none');
+  if (habitTasks.length === 0) {
+    document.getElementById('habitTracker').innerHTML =
+      '<div style="color:var(--ink4);font-size:13px;text-align:center;padding:12px;">繰り返しタスクがありません</div>';
+    return;
+  }
+
+  const html = habitTasks.map(task => {
+    let doneCount = 0, plannedCount = 0;
+    const dots = offsets.map((off, i) => {
+      // この日にこのタスクが予定されているか
+      const planned = isRepeatMatchDay(task, off) &&
+        !(task.deletedDates && task.deletedDates.includes(off));
+      const done = task.doneDates.includes(offsetToDateKey(off));
+      const isFuture = off > todayOffset;
+
+      if (planned) plannedCount++;
+      if (planned && done) doneCount++;
+
+      const dayLabel = DAYS[i];
+      if (!planned) return `<div class="habit-dot noplan">${dayLabel}</div>`;
+      if (isFuture) return `<div class="habit-dot future">${dayLabel}</div>`;
+      if (done)     return `<div class="habit-dot done">✓</div>`;
+      return `<div class="habit-dot missed">${dayLabel}</div>`;
+    }).join('');
+
+    const pct = plannedCount > 0 ? Math.round(doneCount / plannedCount * 100) : 0;
+    return `
+      <div class="habit-row">
+        <div class="habit-title" title="${task.title}">${task.title}</div>
+        <div class="habit-dots">${dots}</div>
+        <div class="habit-pct">${pct}%</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('habitTracker').innerHTML = html;
+}
+
+function renderTimeGraph(offsets) {
+  // タスク別の合計時間（完了済みのみ）
+  const taskTimes = {};
+
+  offsets.forEach(off => {
+    const dayTasks = state.tasks.filter(t => isTaskForToday(t, off));
+    dayTasks.forEach(task => {
+      if (!task.doneDates.includes(offsetToDateKey(off))) return;
+      if (!taskTimes[task.title]) taskTimes[task.title] = 0;
+      taskTimes[task.title] += task.duration;
+    });
+  });
+
+  const entries = Object.entries(taskTimes).sort((a,b) => b[1]-a[1]);
+  if (entries.length === 0) {
+    document.getElementById('timeGraph').innerHTML =
+      '<div style="color:var(--ink4);font-size:13px;text-align:center;padding:12px;">完了済みタスクがありません</div>';
+    return;
+  }
+
+  const maxMin = entries[0][1];
+  const totalMin = entries.reduce((s,[,m]) => s+m, 0);
+  const totalH = Math.floor(totalMin/60), totalM = totalMin%60;
+
+  const bars = entries.map(([title, min]) => {
+    const h = Math.floor(min/60), m = min%60;
+    const label = h > 0 ? `${h}h${m>0?m+'m':''}` : `${m}m`;
+    const pct = Math.round(min/maxMin*100);
+    return `
+      <div class="bar-row">
+        <div class="bar-label" title="${title}">${title}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <div class="bar-val">${label}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('timeGraph').innerHTML =
+    `<div style="font-size:11px;color:var(--ink3);margin-bottom:10px;">合計: ${totalH}時間${totalM}分</div>` + bars;
+}
+
+function renderWeeklyReview(offsets) {
+  const today = new Date();
+  let totalTasks = 0, doneTasks = 0, totalMin = 0, doneMin = 0;
+  let bestDay = null, bestDayCount = 0;
+  const DAYS = ['月','火','水','木','金','土','日'];
+
+  offsets.forEach((off, i) => {
+    if (off > 0) return; // 未来は除く
+    const dayTasks = state.tasks.filter(t => isTaskForToday(t, off));
+    const dayDone = dayTasks.filter(t => t.doneDates.includes(offsetToDateKey(off)));
+    totalTasks += dayTasks.length;
+    doneTasks  += dayDone.length;
+    totalMin   += dayTasks.reduce((s,t) => s+t.duration, 0);
+    doneMin    += dayDone.reduce((s,t) => s+t.duration, 0);
+    if (dayDone.length > bestDayCount) {
+      bestDayCount = dayDone.length;
+      bestDay = DAYS[i];
+    }
+  });
+
+  const completionRate = totalTasks > 0 ? Math.round(doneTasks/totalTasks*100) : 0;
+  const doneH = Math.floor(doneMin/60), doneM = doneMin%60;
+  const doneTimeStr = doneH > 0 ? `${doneH}時間${doneM>0?doneM+'分':''}` : `${doneM}分`;
+
+  document.getElementById('weeklyReview').innerHTML = `
+    <div class="review-stat">
+      <span class="review-stat-label">タスク完了率</span>
+      <span class="review-stat-val">${completionRate}%</span>
+    </div>
+    <div class="review-stat">
+      <span class="review-stat-label">完了タスク数</span>
+      <span class="review-stat-val">${doneTasks} / ${totalTasks}</span>
+    </div>
+    <div class="review-stat">
+      <span class="review-stat-label">こなした時間</span>
+      <span class="review-stat-val">${doneTimeStr}</span>
+    </div>
+    <div class="review-stat">
+      <span class="review-stat-label">最も達成した曜日</span>
+      <span class="review-stat-val">${bestDay ? bestDay+'曜日' : '—'}</span>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════
+//  長押しで複製
+// ══════════════════════════════════════════════
+let longPressTimer = null;
+const LONG_PRESS_MS = 600;
+
+function setupLongPress(el, taskId) {
+  const start = (e) => {
+    longPressTimer = setTimeout(() => {
+      duplicateTask(taskId);
+      // 触覚フィードバック（対応デバイスのみ）
+      if (navigator.vibrate) navigator.vibrate(40);
+    }, LONG_PRESS_MS);
+  };
+  const cancel = () => { clearTimeout(longPressTimer); longPressTimer = null; };
+  el.addEventListener('touchstart', start, { passive: true });
+  el.addEventListener('touchend',   cancel);
+  el.addEventListener('touchmove',  cancel);
+  el.addEventListener('mousedown',  start);
+  el.addEventListener('mouseup',    cancel);
+  el.addEventListener('mouseleave', cancel);
+}
+
+function duplicateTask(id) {
+  const task = state.tasks.find(t => t.id === id);
+  if (!task) return;
+  const copy = JSON.parse(JSON.stringify(task));
+  copy.id    = Date.now();
+  copy.title = copy.title + ' (コピー)';
+  copy.doneDates = [];
+  if (copy.repeatMode === 'none') {
+    copy.allocatedOffset = offsetToDateKey(currentDayOffset);
+    if (copy.start != null) copy.start = (copy.start || 0) + copy.duration;
+  }
+  copy.createdOffset = offsetToDateKey(currentDayOffset);
+  state.tasks.push(copy);
+  saveState();
+  renderAll();
+  // 短いフラッシュで複製を知らせる
+  showToast(`「${task.title}」を複製しました`);
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('toastMsg');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toastMsg';
+    toast.style.cssText = `
+      position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
+      background:var(--ink); color:white; padding:10px 18px;
+      border-radius:20px; font-size:13px; font-weight:700;
+      z-index:9999; opacity:0; transition:opacity 0.2s; white-space:nowrap;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+}
+
+// ══════════════════════════════════════════════
+//  SUBTASK
+// ══════════════════════════════════════════════
+function renderSubtaskProgress(task, offset) {
+  const subs = task.subtasks;
+  if (!subs || subs.length === 0) return '';
+  const doneKey = `done_${offsetToDateKey(offset)}`;
+  const doneCount = subs.filter(s => s[doneKey]).length;
+  return ` · <span style="color:var(--green);font-weight:700;">${doneCount}/${subs.length}</span>`;
+}
+
+function renderSubtaskList(task) {
+  const container = document.getElementById('subtaskList');
+  const subs = task.subtasks || [];
+  const doneKey = `done_${offsetToDateKey(currentDayOffset)}`;
+  container.innerHTML = subs.map((s, i) => `
+    <div class="subtask-item ${s[doneKey] ? 'done' : ''}">
+      <input type="checkbox" ${s[doneKey] ? 'checked' : ''}
+        style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;"
+        onchange="toggleSubtask(${i}, this.checked)">
+      <span class="subtask-label">${s.title}</span>
+      <button class="subtask-del" onclick="deleteSubtask(${i})">×</button>
+    </div>`).join('');
+}
+
+function addSubtask() {
+  const input = document.getElementById('subtaskInput');
+  const title = input.value.trim();
+  if (!title) return;
+  const task = state.tasks.find(t => t.id === editingTaskId);
+  if (!task) return;
+  if (!task.subtasks) task.subtasks = [];
+  task.subtasks.push({ title });
+  input.value = '';
+  renderSubtaskList(task);
+  saveState();
+  renderAll();
+}
+
+function toggleSubtask(index, checked) {
+  const task = state.tasks.find(t => t.id === editingTaskId);
+  if (!task || !task.subtasks) return;
+  const doneKey = `done_${offsetToDateKey(currentDayOffset)}`;
+  task.subtasks[index][doneKey] = checked;
+  renderSubtaskList(task);
+  saveState();
+  renderAll();
+}
+
+function deleteSubtask(index) {
+  const task = state.tasks.find(t => t.id === editingTaskId);
+  if (!task || !task.subtasks) return;
+  task.subtasks.splice(index, 1);
+  renderSubtaskList(task);
+  saveState();
+  renderAll();
+}
+
+// ══════════════════════════════════════════════
+//  Web Push 登録・解除
+// ══════════════════════════════════════════════
+const VAPID_PUBLIC_KEY = 'BKA3ETkb7y1UslBTOCURZKrRZUPSb19xUTZlE60OCJDlNW0CrxB5hdvNkdxaZJ9GHrmhZlr3zkCvk4I6tILjnug';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function updatePushUI() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    document.getElementById('pushSubscribeBtn').textContent = '⚠ このブラウザは非対応';
+    document.getElementById('pushSubscribeBtn').disabled = true;
+    return;
+  }
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  document.getElementById('pushSubscribeBtn').style.display   = sub ? 'none' : 'block';
+  document.getElementById('pushUnsubscribeBtn').style.display = sub ? 'block' : 'none';
+}
+
+function showPushStatus(msg, isError = false) {
+  const el = document.getElementById('pushStatusMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background = isError ? '#fff0f0' : 'var(--green-dim)';
+  el.style.color = isError ? 'var(--red)' : 'var(--green)';
+}
+
+async function subscribePush() {
+  if (!syncCfg.workerUrl) {
+    showPushStatus('先にWorkerに接続してください', true); return;
+  }
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      showPushStatus('通知が許可されませんでした。ブラウザの設定を確認してください', true); return;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+    // Workerにサブスクリプション情報を送信
+    const res = await fetch(syncCfg.workerUrl + '/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(syncCfg.secret ? { 'X-Secret': syncCfg.secret } : {}) },
+      body: JSON.stringify(sub.toJSON())
+    });
+    if (!res.ok) throw new Error(`Worker error: ${res.status}`);
+    showPushStatus('✓ バックグラウンド通知を有効にしました');
+    await updatePushUI();
+  } catch(e) {
+    showPushStatus('エラー: ' + e.message, true);
+  }
+}
+
+async function unsubscribePush() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) { await updatePushUI(); return; }
+    // Workerからも削除
+    if (syncCfg.workerUrl) {
+      await fetch(syncCfg.workerUrl + '/subscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...(syncCfg.secret ? { 'X-Secret': syncCfg.secret } : {}) },
+        body: JSON.stringify({ endpoint: sub.endpoint })
+      });
+    }
+    await sub.unsubscribe();
+    showPushStatus('通知を無効にしました');
+    await updatePushUI();
+  } catch(e) {
+    showPushStatus('エラー: ' + e.message, true);
+  }
+}
+
+// 同期設定を開いたときにPushUIを更新
+const _origOpenSyncSettings = openSyncSettings;
+function openSyncSettings() {
+  _origOpenSyncSettings();
+  updatePushUI();
+  document.getElementById('pushStatusMsg').style.display = 'none';
+}
+
+
+window.onload = async () => {
+  // 時間セレクトを動的生成
+  const selH = document.getElementById('editTimeH');
+  const selM = document.getElementById('editTimeM');
+  for (let i = 0; i < 24; i++) {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = String(i).padStart(2,'0');
+    selH.appendChild(o);
+  }
+  [0,5,10,15,20,25,30,35,40,45,50,55].forEach(m => {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = String(m).padStart(2,'0');
+    selM.appendChild(o);
+  });
+  // 追加フォームの開始時間セレクトも生成
+  const addH = document.getElementById('addTimeH');
+  const addM = document.getElementById('addTimeM');
+  if (addH && addM) {
+    for (let i = 0; i < 24; i++) {
+      const o = document.createElement('option');
+      o.value = i; o.textContent = String(i).padStart(2,'0');
+      addH.appendChild(o);
+    }
+    [0,5,10,15,20,25,30,35,40,45,50,55].forEach(m => {
+      const o = document.createElement('option');
+      o.value = m; o.textContent = String(m).padStart(2,'0');
+      addM.appendChild(o);
+    });
+  }
+
+  loadFromLocal();
+  migrateTaskDates(); // 旧データを絶対日付キーに変換
+  loadSyncConfig();
+
+  if (syncCfg.workerUrl) {
+    showSyncStatus('syncing');
+    await pullFromBin();
+  }
+
+  renderAll();
+  setInterval(updateClock, 1000);
+  updateClock();
+  enableLaterTouchDrag();
+  window.addEventListener('resize', () => positionBlocksByColumn());
+  startAutoSync();
+};
+
+// タブに戻ってきたとき（スマホでアプリ切り替え後など）に同期
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) pullFromBin();
+});
+
+// Service Worker 登録（PWA対応）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+      // 起動のたびに更新チェック
+      reg.update();
+
+      // 新しいSWが見つかったら即リロード
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'activated') {
+            window.location.reload();
+          }
+        });
+      });
+
+      // 別タブで更新されたSWが制御権を取ったらリロード
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
+    } catch(e) {
+      console.log('SW error', e);
+    }
+  });
+}
+</script>
+</body>
+</html>
+ --now-line:  #3e352a;
   --font-main: 'M PLUS Rounded 1c', sans-serif;
   --header-h: 60px;
   --nav-h: 65px;
