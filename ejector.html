@@ -1496,7 +1496,8 @@ function renderTimeline(dayTasks, range) {
         if (nowMin < item.end) appendGapRow(tl, nowMin, item.end, true);
         return;
       }
-      // 過去の空き時間（今日かつ終了が現在時刻以前）
+      // 過去の空き時間（今日かつ終了が現在時刻以前、または過去日）
+      if (currentDayOffset < 0) return;
       if (currentDayOffset === 0 && item.end <= nowMin) return;
       appendGapRow(tl, item.start, item.end, true);
     } else {
@@ -1524,11 +1525,13 @@ function appendNowRow(tl) {
 }
 
 function appendGapRow(tl, startMin, endMin, showChips) {
-  // 今日かつ完全に過去の空き時間は描画しない（スマホ含む全環境で確実にガード）
+  // 過去日は空き時間を表示しない
+  if (currentDayOffset < 0) return;
+  // 今日かつ完全に過去の空き時間は描画しない
   if (currentDayOffset === 0) {
     const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-    if (endMin <= nowMin) return;        // 完全に過去 → スキップ
-    if (startMin < nowMin) startMin = nowMin; // 途中から始まる場合は現在時刻に切り詰め
+    if (endMin <= nowMin) return;
+    if (startMin < nowMin) startMin = nowMin;
   }
 
   const dur = endMin - startMin;
@@ -1638,9 +1641,10 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
     // 進行中かどうかを判定してプログレスを計算
     const taskStart = task.start;
     const taskEnd   = task.start + origTask.duration;
-    const isInProgress = currentDayOffset === 0 && nowMin > taskStart && nowMin < taskEnd;
-    // 終了時刻を過ぎている場合（完了・未完了問わず）100%塗る
-    const isPassed = currentDayOffset === 0 && nowMin >= taskEnd;
+    // 過去日は全タスクを100%塗る、今日は経過時間分塗る
+    const isPastDay    = currentDayOffset < 0;
+    const isInProgress = !isPastDay && nowMin > taskStart && nowMin < taskEnd;
+    const isPassed     = isPastDay || nowMin >= taskEnd;
     const progress = isInProgress
       ? Math.round(((nowMin - taskStart) / origTask.duration) * 100)
       : isPassed ? 100 : 0;
