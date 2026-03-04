@@ -9,13 +9,11 @@
 <meta name="apple-mobile-web-app-title" content="EJECTOR">
 <meta name="theme-color" content="#2d7a4f">
 <link rel="manifest" href="manifest.json">
-<!-- Apple Touch Icon (インライン SVG をbase64化) -->
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>EJECTOR</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&display=swap');
 
-/* ─── TOKENS ─── */
 :root {
   --bg:        #f5f0e8;
   --bg2:       #ede8de;
@@ -34,31 +32,26 @@
   --blue:      #34495e;
   --blue-dim:  rgba(52,73,94,0.1);
   --red:       #c0392b;
+  --orange:    #e67e22;
   --now-line:  #3e352a;
   --font-main: 'M PLUS Rounded 1c', sans-serif;
   --header-h: 60px;
   --nav-h: 65px;
 }
 
-/* ─── BASE ─── */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: var(--font-main) !important; }
 body { margin: 0; background: var(--bg); color: var(--ink); overflow: hidden; font-size: 14px; line-height: 1.5; }
 button { cursor: pointer; border: none; background: none; color: inherit; }
 
-/* ─── LAYOUT ─── */
 #app { display: flex; height: 100dvh; width: 100vw; flex-direction: column; }
 #container { display: flex; flex: 1; overflow: hidden; }
 #main { flex: 1; display: flex; flex-direction: column; position: relative; background: var(--surface); min-width: 0; }
 #rpanel { width: 320px; background: var(--bg2); display: flex; flex-direction: column; border-left: 1px solid var(--border); z-index: 100; overflow: hidden; }
 
-/* input-view は中身が多い場合スクロール */
 #input-view { display: flex; flex-direction: column; overflow-y: auto; max-height: 60%; flex-shrink: 0; }
-/* later-view は残りスペースを埋めてスクロール */
 #later-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid var(--border); min-height: 0; }
-/* report-view */
 #report-view { display: none; }
 
-/* ─── HEADER ─── */
 header {
   height: var(--header-h);
   border-bottom: 1px solid var(--border);
@@ -66,14 +59,12 @@ header {
 }
 #clock { font-size: 16px; font-weight: 700; color: var(--green); flex-shrink: 0; }
 #currentDateDisplay { font-weight: 700; font-size: 14px; flex-shrink: 0; }
-/* PC: weekNav をヘッダー内に横並び */
 #weekNav {
   flex: 1; display: flex; align-items: center; gap: 0;
   overflow: hidden; height: 100%;
 }
 .header-spacer { flex: 1; }
 
-/* ─── SYNC BUTTON ─── */
 #syncBtn {
   font-size: 18px; width: 36px; height: 36px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -84,6 +75,15 @@ header {
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: spin 1s linear infinite; }
 
+/* ─── TIMESHIFT BUTTON ─── */
+#timeShiftBtn {
+  font-size: 16px; width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--orange); border: 1px solid var(--border); background: var(--bg2);
+  transition: all 0.2s;
+}
+#timeShiftBtn:hover { background: rgba(230,126,34,0.1); border-color: var(--orange); }
+
 /* ─── TIMELINE ─── */
 #tlWrap { flex: 1; overflow-y: auto; position: relative; scroll-behavior: smooth; }
 .timeline {
@@ -91,14 +91,12 @@ header {
   padding: 8px 12px 40px 0;
   min-height: 100%;
 }
-/* 各行：時間ラベル + コンテンツ */
 .tl-row {
   display: flex; align-items: stretch; min-height: 0;
   position: relative;
 }
 .tl-row.tl-task   { min-height: 56px; }
 .tl-row.tl-gap    { min-height: 64px; }
-/* 左カラム：時間ラベル＋縦線 */
 .tl-time-col {
   width: 58px; flex-shrink: 0;
   display: flex; flex-direction: column; align-items: flex-end;
@@ -112,19 +110,19 @@ header {
   flex: 1; width: 2px; background: var(--border);
   margin: 4px auto 0; border-radius: 1px;
 }
-/* 右カラム：ブロック/ギャップ */
 .tl-content-col { flex: 1; padding: 3px 0 3px 4px; display: flex; gap: 4px; }
 
-/* ─── BLOCKS & GAPS (flow) ─── */
+/* ─── BLOCKS ─── */
 .block {
   flex: 1; background: white;
   border: 1px solid var(--border); border-left: 5px solid var(--green);
   border-radius: 10px; padding: 10px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.06);
-  display: flex; align-items: flex-start; gap: 8px;
+  display: flex; flex-direction: column; gap: 4px;
   cursor: pointer; overflow: hidden; min-width: 0;
   position: relative;
 }
+.block-header { display: flex; align-items: flex-start; gap: 8px; }
 .block.in-progress {
   background: linear-gradient(
     to bottom,
@@ -139,7 +137,6 @@ header {
     #f0f4f8 var(--progress, 0%)
   );
 }
-/* 完了済みでも進行中なら色を付ける（opacity:0.5で薄くなるので少し濃いめ） */
 .block.completed.in-progress {
   background: linear-gradient(
     to bottom,
@@ -150,6 +147,30 @@ header {
 .block.special { border-left-color: var(--blue); background: #f0f4f8; }
 .block.completed { opacity: 0.5; filter: grayscale(0.5); }
 .task-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--green); margin-top: 2px; flex-shrink: 0; }
+
+/* ─── INLINE SUBTASKS IN TIMELINE ─── */
+.block-subtasks {
+  display: none; /* toggleで表示 */
+  flex-direction: column; gap: 4px;
+  padding: 6px 0 2px 28px;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+}
+.block-subtasks.open { display: flex; }
+.block-subtask-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--ink2);
+}
+.block-subtask-item.done { text-decoration: line-through; color: var(--ink4); }
+.block-subtask-item input[type="checkbox"] {
+  width: 15px; height: 15px; accent-color: var(--green); flex-shrink: 0; cursor: pointer;
+}
+.subtask-toggle-btn {
+  font-size: 10px; color: var(--green); font-weight: 700;
+  background: var(--green-dim); border-radius: 8px; padding: 1px 7px;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  border: none;
+}
 
 /* ─── FREE GAP ─── */
 .free-gap {
@@ -164,7 +185,6 @@ header {
   overflow: hidden; display: flex; align-items: center;
 }
 .free-gap.drag-over { background: #ede0ce; border-color: #a07850; }
-/* Now line for flow layout */
 .tl-now-row {
   display: flex; align-items: center;
   position: relative; margin: 0;
@@ -182,9 +202,6 @@ header {
   display: flex; flex-direction: column;
   padding: 10px 12px 6px;
   font-size: 13px; font-weight: 700; color: #6b4f2e;
-}
-.gap-header::before {
-  content: none;
 }
 .gap-tasks {
   padding: 0 10px 10px; display: flex; flex-wrap: wrap; gap: 6px;
@@ -223,6 +240,24 @@ header {
 }
 .modal-title { font-size: 17px; font-weight: 700; margin: 0 0 14px; }
 
+/* ─── TIMESHIFT MODAL ─── */
+.timeshift-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 14px; border-radius: 12px; font-weight: 700; font-size: 14px;
+  border: 1.5px solid var(--border); background: white;
+  transition: all 0.15s; cursor: pointer;
+}
+.timeshift-btn:hover { border-color: var(--orange); color: var(--orange); background: rgba(230,126,34,0.05); }
+.timeshift-btn.negative:hover { border-color: var(--blue); color: var(--blue); background: rgba(52,73,94,0.05); }
+.timeshift-custom {
+  display: flex; align-items: center; gap: 8px; margin-top: 12px;
+}
+.timeshift-display {
+  text-align: center; font-size: 28px; font-weight: 700; color: var(--orange);
+  padding: 12px; background: rgba(230,126,34,0.08); border-radius: 12px; margin: 12px 0;
+}
+.timeshift-display.negative { color: var(--blue); background: rgba(52,73,94,0.08); }
+
 /* ─── SYNC UI ─── */
 .sync-badge {
   display: inline-flex; align-items: center; gap: 6px;
@@ -247,7 +282,6 @@ header {
 details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(--ink2); font-size: 13px; }
 
 /* ─── WEEK NAV ─── */
-/* PC: ヘッダー内インライン表示 */
 #weekNav {
   display: flex; align-items: center; gap: 0;
   background: transparent; border: none; padding: 0;
@@ -291,7 +325,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 .week-day-btn.active.sat .wday-label,
 .week-day-btn.active.sat .day-num { color: var(--green); }
 
-/* スマホ版 weekNav（PC では非表示） */
 #weekNavMobile { display: none; }
 
 /* ─── REPORT ─── */
@@ -340,7 +373,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 .subtask-label { flex: 1; font-size: 13px; color: var(--ink); }
 .subtask-del { color: var(--ink4); font-size: 16px; line-height: 1; padding: 2px 4px; }
 .subtask-del:hover { color: var(--red); }
-/* タイムラインブロック内のサブタスク進捗 */
 .subtask-progress {
   font-size: 10px; color: var(--ink3); margin-top: 2px;
   display: flex; align-items: center; gap: 4px;
@@ -381,7 +413,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 @media (max-width: 768px) {
   header { height: var(--header-h); padding: 0 12px; flex-wrap: nowrap; }
   #currentDateDisplay { display: none !important; }
-  /* ヘッダー内のweekNavを非表示にしてスマホ用を使う */
   #weekNav { display: none !important; }
   #weekNavMobile {
     display: flex; align-items: center;
@@ -397,7 +428,7 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   #app.show-later #main { display: none; }
   #app.show-later #rpanel {
     display: flex; width: 100%; border-left: none;
-    overflow: hidden; /* スクロール領域を正しく確保 */
+    overflow: hidden;
   }
   #app.show-later #input-view { display: none; }
   #app.show-later #later-view {
@@ -426,7 +457,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 <div id="app">
   <header>
     <div id="clock">00:00:00</div>
-    <!-- PC版: weekNav をヘッダー内インライン表示 -->
     <div id="weekNav">
       <button class="week-today-btn" onclick="goToday()">今日</button>
       <button class="week-arrow" onclick="changeDate(-1)">‹</button>
@@ -435,12 +465,12 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
     </div>
     <span id="currentDateDisplay" style="font-weight:700; font-size:14px; flex-shrink:0; display:none;"></span>
     <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+      <button id="timeShiftBtn" onclick="openTimeShift()" title="タイムシフト（一括時間移動）">⏩</button>
       <button id="pullBtn" onclick="manualPull()" title="今すぐ同期" style="font-size:18px; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink3); border:1px solid var(--border); background:var(--bg2);">↻</button>
       <button id="syncBtn" onclick="openSyncSettings()" title="データ同期設定">☁</button>
     </div>
   </header>
 
-  <!-- スマホ版: weekNav を別行に（CSSで制御） -->
   <div id="weekNavMobile">
     <button class="week-today-btn" onclick="goToday()">今日</button>
     <button class="week-arrow" onclick="changeDate(-1)">‹</button>
@@ -525,32 +555,23 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
       <section id="report-view" style="display:none; flex-direction:column; flex:1; overflow-y:auto;">
         <div class="section-title">📊 レポート</div>
         <div style="padding:0 16px 16px;">
-
-          <!-- 週切り替え -->
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
             <button onclick="changeReportWeek(-1)" style="width:32px;height:32px;border-radius:50%;background:var(--bg2);font-size:18px;display:flex;align-items:center;justify-content:center;">‹</button>
             <span id="reportWeekLabel" style="font-weight:700; font-size:13px; color:var(--ink2);"></span>
             <button onclick="changeReportWeek(1)" style="width:32px;height:32px;border-radius:50%;background:var(--bg2);font-size:18px;display:flex;align-items:center;justify-content:center;">›</button>
           </div>
-
-          <!-- 習慣トラッカー -->
           <div style="background:white;border-radius:14px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
             <div style="font-weight:700;font-size:13px;margin-bottom:12px;">🔁 習慣トラッカー</div>
             <div id="habitTracker"></div>
           </div>
-
-          <!-- 時間の使い方グラフ -->
           <div style="background:white;border-radius:14px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
             <div style="font-weight:700;font-size:13px;margin-bottom:12px;">⏱ 時間の使い方</div>
             <div id="timeGraph"></div>
           </div>
-
-          <!-- 週次レビュー -->
           <div style="background:white;border-radius:14px;padding:14px;border:1px solid var(--border);">
             <div style="font-weight:700;font-size:13px;margin-bottom:12px;">📋 週次レビュー</div>
             <div id="weeklyReview"></div>
           </div>
-
         </div>
       </section>
     </aside>
@@ -574,6 +595,43 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
       <span>レポート</span>
     </button>
   </nav>
+</div>
+
+<!-- ─── タイムシフトモーダル ─── -->
+<div id="timeShiftOverlay" class="overlay" onclick="closeTimeShift()">
+  <div class="modal-card" onclick="event.stopPropagation()" style="max-width:360px;">
+    <p class="modal-title">⏩ タイムシフト</p>
+    <p style="font-size:13px; color:var(--ink2); margin:0 0 16px; line-height:1.7;">
+      今日のタイムラインにある全タスクを一括で時間移動します。<br>
+      <span style="color:var(--orange); font-weight:700;">寝坊・残業・予定変更</span>のときに便利です。
+    </p>
+
+    <div id="timeShiftPreview" class="timeshift-display">0分</div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+      <button class="timeshift-btn" onclick="addShiftMin(-60)">− 1時間</button>
+      <button class="timeshift-btn" onclick="addShiftMin(60)">＋ 1時間</button>
+      <button class="timeshift-btn" onclick="addShiftMin(-30)">− 30分</button>
+      <button class="timeshift-btn" onclick="addShiftMin(30)">＋ 30分</button>
+      <button class="timeshift-btn" onclick="addShiftMin(-15)">− 15分</button>
+      <button class="timeshift-btn" onclick="addShiftMin(15)">＋ 15分</button>
+    </div>
+
+    <div class="timeshift-custom">
+      <input type="number" id="timeShiftCustom" class="input-field" placeholder="分単位で入力" style="flex:1;">
+      <button onclick="applyCustomShift()" style="padding:12px 16px; background:var(--orange); color:white; border-radius:10px; font-weight:700; flex-shrink:0;">適用</button>
+    </div>
+
+    <div style="font-size:11px; color:var(--ink3); margin-top:8px; padding:8px; background:var(--bg2); border-radius:8px;">
+      ※ 繰り返しタスクは「今日のみ」のオーバーライドとして保存されます。<br>
+      ※ 起床・就寝タスクも含めて移動します。
+    </div>
+
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button onclick="closeTimeShift()" style="flex:1; padding:12px; color:var(--ink3); border:1px solid var(--border); border-radius:10px; font-weight:700;">キャンセル</button>
+      <button onclick="applyTimeShift()" style="flex:2; padding:12px; background:var(--orange); color:white; border-radius:10px; font-weight:700;">移動する</button>
+    </div>
+  </div>
 </div>
 
 <!-- ─── 編集モーダル ─── -->
@@ -702,325 +760,7 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
         </ol>
         <div style="margin-top:8px; padding:10px; background:var(--bg3); border-radius:8px;">
           <div style="font-size:11px; font-weight:700; color:var(--ink2); margin-bottom:6px;">📄 Worker コード（コピーして貼り付け）</div>
-          <textarea id="workerCodeBox" readonly style="width:100%; height:140px; font-size:10px; font-family:monospace; border:1px solid var(--border2); border-radius:6px; padding:6px; background:white; resize:none; color:var(--ink);">// ═══════════════════════════════════════════════════════
-//  EJECTOR Cloudflare Worker - データ同期 + Web Push通知
-//  KV Bindings: KV (データ), VAPID_PRIVATE_KEY (環境変数)
-//  Cron Trigger: */1 * * * * （毎分実行）
-// ═══════════════════════════════════════════════════════
-
-const VAPID_PUBLIC_KEY  = 'BKA3ETkb7y1UslBTOCURZKrRZUPSb19xUTZlE60OCJDlNW0CrxB5hdvNkdxaZJ9GHrmhZlr3zkCvk4I6tILjnug';
-const VAPID_SUBJECT     = 'mailto:ejector-app@example.com';
-
-// ── CORS ──────────────────────────────────────────────
-const CORS = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Secret',
-};
-const cors  = (body, status = 200, extra = {}) =>
-  new Response(body, { status, headers: { ...CORS, ...extra } });
-const json  = (obj,  status = 200) =>
-  cors(JSON.stringify(obj), status, { 'Content-Type': 'application/json' });
-
-// ── Auth ──────────────────────────────────────────────
-async function checkAuth(request, env) {
-  const secret = request.headers.get('X-Secret') || '';
-  const stored = await env.KV.get('__secret__');
-  if (stored && stored !== secret) return false;
-  if (!stored && secret) await env.KV.put('__secret__', secret);
-  return true;
-}
-
-// ═══════════════════════════════════════════════════════
-//  FETCH ハンドラ
-// ═══════════════════════════════════════════════════════
-export default {
-  async fetch(request, env) {
-    if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
-    if (!await checkAuth(request, env)) return cors('Unauthorized', 401);
-
-    const url = new URL(request.url);
-    const path = url.pathname;
-
-    // ── タスクデータ GET/PUT ──────────────────────────
-    if (path === '/' || path === '') {
-      if (request.method === 'GET') {
-        const data = await env.KV.get('ejector_data');
-        return cors(data || '{}', 200, { 'Content-Type': 'application/json' });
-      }
-      if (request.method === 'PUT') {
-        const body = await request.text();
-        await env.KV.put('ejector_data', body);
-        return cors('ok');
-      }
-    }
-
-    // ── Push サブスクリプション登録 POST /subscribe ───
-    if (path === '/subscribe' && request.method === 'POST') {
-      const sub = await request.json();
-      // 既存サブスクリプション一覧を取得
-      const existing = JSON.parse(await env.KV.get('push_subscriptions') || '[]');
-      // 同じendpointは重複登録しない
-      const filtered = existing.filter(s => s.endpoint !== sub.endpoint);
-      filtered.push(sub);
-      await env.KV.put('push_subscriptions', JSON.stringify(filtered));
-      return json({ ok: true });
-    }
-
-    // ── Push サブスクリプション削除 DELETE /subscribe ─
-    if (path === '/subscribe' && request.method === 'DELETE') {
-      const { endpoint } = await request.json();
-      const existing = JSON.parse(await env.KV.get('push_subscriptions') || '[]');
-      await env.KV.put('push_subscriptions', JSON.stringify(existing.filter(s => s.endpoint !== endpoint)));
-      return json({ ok: true });
-    }
-
-    // ── VAPID 公開鍵を返す GET /vapid-public-key ──────
-    if (path === '/vapid-public-key' && request.method === 'GET') {
-      return json({ key: VAPID_PUBLIC_KEY });
-    }
-
-    return cors('Not found', 404);
-  },
-
-  // ═══════════════════════════════════════════════════
-  //  CRON ハンドラ（毎分実行）
-  // ═══════════════════════════════════════════════════
-  async scheduled(event, env) {
-    await checkAndPushNotifications(env);
-  }
-};
-
-// ═══════════════════════════════════════════════════════
-//  通知ロジック
-// ═══════════════════════════════════════════════════════
-async function checkAndPushNotifications(env) {
-  // 現在のJST時刻を取得（分単位）
-  const now = new Date();
-  const jstOffset = 9 * 60; // JST = UTC+9
-  const jstMin = now.getUTCHours() * 60 + now.getUTCMinutes() + jstOffset;
-  const todayJstMin = jstMin % (24 * 60); // 0〜1439
-
-  // タスクデータ取得
-  const dataRaw = await env.KV.get('ejector_data');
-  if (!dataRaw) return;
-  const data = JSON.parse(dataRaw);
-  if (!data.tasks) return;
-
-  // 今日の日付オフセット = 0（Worker側は常に「今日」のタスクだけチェック）
-  const tasksToNotify = data.tasks.filter(task => {
-    if (!task.notify) return false;
-    if (!task.allocated) return false;
-    if (task.deletedDates && task.deletedDates.includes(0)) return false;
-
-    // 繰り返し判定
-    const dowJst = new Date(now.getTime() + jstOffset * 60000).getUTCDay();
-    if (!isTaskForToday(task, dowJst, jstMin)) return false;
-
-    // 開始時刻が今の分と一致するか
-    const taskStart = task.start; // 分単位
-    return taskStart === todayJstMin;
-  });
-
-  if (tasksToNotify.length === 0) return;
-
-  // 登録済みサブスクリプション取得
-  const subsRaw = await env.KV.get('push_subscriptions');
-  if (!subsRaw) return;
-  const subs = JSON.parse(subsRaw);
-  if (subs.length === 0) return;
-
-  // VAPID秘密鍵取得（環境変数から）
-  const privateKeyB64 = env.VAPID_PRIVATE_KEY;
-  if (!privateKeyB64) { console.error('VAPID_PRIVATE_KEY not set'); return; }
-
-  // 各タスクを各サブスクリプションに送信
-  const deadSubs = [];
-  for (const task of tasksToNotify) {
-    for (const sub of subs) {
-      try {
-        await sendWebPush(sub, {
-          title: `⏰ ${task.title}`,
-          body:  '開始時刻になりました',
-          icon:  'https://mogmog11.github.io/ejector/icon-192.png',
-          badge: 'https://mogmog11.github.io/ejector/icon-192.png',
-          tag:   `ejector-${task.id}`,
-        }, privateKeyB64);
-      } catch(e) {
-        // 410 Gone = サブスクリプション無効 → 削除対象
-        if (e.status === 410) deadSubs.push(sub.endpoint);
-        console.error('Push failed:', e.message);
-      }
-    }
-  }
-
-  // 無効なサブスクリプションを削除
-  if (deadSubs.length > 0) {
-    const cleaned = subs.filter(s => !deadSubs.includes(s.endpoint));
-    await env.KV.put('push_subscriptions', JSON.stringify(cleaned));
-  }
-}
-
-function isTaskForToday(task, dowJst, jstMin) {
-  if (task.repeatMode === 'daily') return true;
-  if (task.repeatMode === 'weekday') return dowJst >= 1 && dowJst <= 5;
-  if (task.repeatMode === 'weekend') return dowJst === 0 || dowJst === 6;
-  if (task.repeatMode === 'custom')  return task.customDays.includes(dowJst);
-  if (task.repeatMode === 'none')    return true; // allocatedOffsetチェックはWorker側では省略
-  if (task.repeatMode === 'month-end') {
-    const now = new Date();
-    const tomorrow = new Date(now.getTime() + 86400000);
-    return tomorrow.getUTCDate() === 1;
-  }
-  return false;
-}
-
-// ═══════════════════════════════════════════════════════
-//  Web Push 送信（VAPID署名付き）
-// ═══════════════════════════════════════════════════════
-async function sendWebPush(subscription, payload, privateKeyB64) {
-  const endpoint  = subscription.endpoint;
-  const p256dh    = subscription.keys.p256dh;
-  const auth      = subscription.keys.auth;
-
-  // JWTを生成
-  const jwt = await buildVapidJwt(endpoint, privateKeyB64);
-
-  // ペイロードを暗号化
-  const encrypted = await encryptPayload(JSON.stringify(payload), p256dh, auth);
-
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization':  `vapid t=${jwt},k=${VAPID_PUBLIC_KEY}`,
-      'Content-Type':   'application/octet-stream',
-      'Content-Encoding': 'aes128gcm',
-      'TTL':            '60',
-    },
-    body: encrypted,
-  });
-
-  if (!res.ok && res.status !== 201) {
-    const err = new Error(`Push failed: ${res.status}`);
-    err.status = res.status;
-    throw err;
-  }
-}
-
-// ── VAPID JWT 生成 ──────────────────────────────────
-async function buildVapidJwt(endpoint, privateKeyB64) {
-  const url      = new URL(endpoint);
-  const audience = `${url.protocol}//${url.host}`;
-  const exp      = Math.floor(Date.now() / 1000) + 12 * 3600;
-
-  const header  = b64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
-  const payload = b64url(JSON.stringify({ aud: audience, exp, sub: VAPID_SUBJECT }));
-  const unsigned = `${header}.${payload}`;
-
-  // PKCS8形式の秘密鍵をインポート
-  const keyBytes  = base64ToBytes(privateKeyB64);
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8', keyBytes,
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false, ['sign']
-  );
-
-  const sig = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    cryptoKey,
-    new TextEncoder().encode(unsigned)
-  );
-
-  return `${unsigned}.${b64url(sig)}`;
-}
-
-// ── ペイロード暗号化（RFC 8291 aes128gcm） ──────────
-async function encryptPayload(plaintext, p256dhB64, authB64) {
-  const encoder    = new TextEncoder();
-  const plaintextBytes = encoder.encode(plaintext);
-
-  // 受信者の公開鍵（p256dh）
-  const receiverPub = await crypto.subtle.importKey(
-    'raw', base64ToBytes(p256dhB64),
-    { name: 'ECDH', namedCurve: 'P-256' },
-    true, []
-  );
-
-  // 送信者の鍵ペアを一時生成
-  const senderKeys = await crypto.subtle.generateKey(
-    { name: 'ECDH', namedCurve: 'P-256' },
-    true, ['deriveKey', 'deriveBits']
-  );
-  const senderPubRaw = new Uint8Array(await crypto.subtle.exportKey('raw', senderKeys.publicKey));
-
-  // auth secret と salt
-  const authBytes = base64ToBytes(authB64);
-  const salt      = crypto.getRandomValues(new Uint8Array(16));
-
-  // ECDH共有鍵
-  const sharedBits = await crypto.subtle.deriveBits(
-    { name: 'ECDH', public: receiverPub },
-    senderKeys.privateKey, 256
-  );
-
-  // HKDF で IKM (PRK) を導出
-  const ikm = await hkdf(
-    new Uint8Array(sharedBits), authBytes,
-    concat(encoder.encode('WebPush: info\x00'), receiverPub_raw(await crypto.subtle.exportKey('raw', receiverPub)), senderPubRaw),
-    32
-  );
-
-  // HKDF で CEK と nonce を導出
-  const cek   = await hkdf(ikm, salt, encoder.encode('Content-Encryption-Key\x01'), 16);
-  const nonce = await hkdf(ikm, salt, encoder.encode('Nonce\x01'), 12);
-
-  // AES-128-GCM で暗号化
-  const cekKey = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce, additionalData: new Uint8Array(0), tagLength: 128 },
-    cekKey,
-    concat(plaintextBytes, new Uint8Array([2])) // padding delimiter
-  ));
-
-  // aes128gcm record: salt(16) + recordSize(4) + keyIdLen(1) + keyId(senderPub 65) + ciphertext
-  const recordSize = new Uint8Array(4);
-  new DataView(recordSize.buffer).setUint32(0, 4096, false);
-
-  return concat(salt, recordSize, new Uint8Array([65]), senderPubRaw, ciphertext);
-}
-
-function receiverPub_raw(raw) { return new Uint8Array(raw); }
-
-async function hkdf(ikm, salt, info, length) {
-  const keyMaterial = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'HKDF', hash: 'SHA-256', salt, info },
-    keyMaterial, length * 8
-  );
-  return new Uint8Array(bits);
-}
-
-function concat(...arrays) {
-  const total = arrays.reduce((s, a) => s + a.length, 0);
-  const out   = new Uint8Array(total);
-  let offset  = 0;
-  for (const a of arrays) { out.set(a, offset); offset += a.length; }
-  return out;
-}
-
-function b64url(input) {
-  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input);
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-}
-
-function base64ToBytes(b64) {
-  const b64std = b64.replace(/-/g,'+').replace(/_/g,'/');
-  const bin    = atob(b64std);
-  const bytes  = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-</textarea>
+          <textarea id="workerCodeBox" readonly style="width:100%; height:140px; font-size:10px; font-family:monospace; border:1px solid var(--border2); border-radius:6px; padding:6px; background:white; resize:none; color:var(--ink);"></textarea>
           <button onclick="copyWorkerCode()" style="margin-top:6px; padding:6px 12px; background:var(--green); color:white; border-radius:6px; font-size:12px; font-weight:700;">コードをコピー</button>
         </div>
       </div>
@@ -1041,7 +781,6 @@ function base64ToBytes(b64) {
       <button onclick="connectSync()" style="flex:2; padding:12px; background:var(--green); color:white; border-radius:10px; font-weight:700;">接続する</button>
     </div>
 
-    <!-- バックグラウンド通知 -->
     <div style="margin-top:16px; padding:14px; background:var(--bg2); border-radius:12px;">
       <div style="font-weight:700; font-size:13px; margin-bottom:8px;">🔔 バックグラウンド通知</div>
       <div style="font-size:12px; color:var(--ink2); margin-bottom:10px; line-height:1.6;">
@@ -1071,7 +810,6 @@ function base64ToBytes(b64) {
 // ══════════════════════════════════════════════
 const DAYS_JP = ['日','月','火','水','木','金','土'];
 
-/** このデバイス固有ID（競合回避用） */
 const DEVICE_ID = (() => {
   let id = localStorage.getItem('ejector_deviceId');
   if (!id) { id = Math.random().toString(36).substr(2, 9); localStorage.setItem('ejector_deviceId', id); }
@@ -1096,7 +834,6 @@ const state = { tasks: JSON.parse(JSON.stringify(DEFAULT_TASKS)) };
 
 // ══════════════════════════════════════════════
 //  DATE KEY ユーティリティ
-//  offset（今日から相対）→ 絶対日付キー YYYYMMDD
 // ══════════════════════════════════════════════
 function offsetToDateKey(offset) {
   const d = new Date();
@@ -1115,26 +852,22 @@ function dateKeyToOffset(dateKey) {
   return Math.round((target - today) / 86400000);
 }
 
-// 旧データ（相対offset整数）→ 新データ（絶対dateKey）へマイグレーション
 function migrateTaskDates() {
   const isOldFormat = (v) => typeof v === 'number' && Math.abs(v) < 1000;
   let changed = false;
   state.tasks.forEach(task => {
-    // doneDates
     if (task.doneDates) {
       task.doneDates = task.doneDates.map(v => {
         if (isOldFormat(v)) { changed = true; return offsetToDateKey(v); }
         return v;
       });
     }
-    // deletedDates
     if (task.deletedDates) {
       task.deletedDates = task.deletedDates.map(v => {
         if (isOldFormat(v)) { changed = true; return offsetToDateKey(v); }
         return v;
       });
     }
-    // overrides
     if (task.overrides) {
       const newOv = {};
       Object.entries(task.overrides).forEach(([k, v]) => {
@@ -1147,12 +880,10 @@ function migrateTaskDates() {
       });
       task.overrides = newOv;
     }
-    // allocatedOffset
     if (task.allocatedOffset !== undefined && isOldFormat(task.allocatedOffset)) {
       task.allocatedOffset = offsetToDateKey(task.allocatedOffset);
       changed = true;
     }
-    // createdOffset
     if (task.createdOffset !== undefined && isOldFormat(task.createdOffset)) {
       task.createdOffset = offsetToDateKey(task.createdOffset);
       changed = true;
@@ -1160,7 +891,6 @@ function migrateTaskDates() {
   });
   if (changed) saveToLocal();
 }
-
 
 function saveToLocal() {
   localStorage.setItem('ejector_tasks', JSON.stringify(state.tasks));
@@ -1192,7 +922,6 @@ function cfHeaders(extra = {}) {
   return { ...h, ...extra };
 }
 
-/** リモートからデータを取得 */
 async function pullFromBin() {
   if (!syncCfg.workerUrl || isSyncing) return;
   try {
@@ -1201,7 +930,6 @@ async function pullFromBin() {
     const record = await res.json();
 
     if (!record || !record.tasks || !Array.isArray(record.tasks)) {
-      // リモートが空なのでローカルをアップロード
       await pushToBin();
       return;
     }
@@ -1209,7 +937,6 @@ async function pullFromBin() {
     const remoteTime   = record.updatedAt || 0;
     const remoteDevice = record.deviceId  || '';
 
-    // 別デバイスの更新がローカルより新しければ反映
     if (remoteDevice !== DEVICE_ID && remoteTime > lastPushTime) {
       state.tasks = record.tasks;
       saveToLocal();
@@ -1222,7 +949,6 @@ async function pullFromBin() {
   }
 }
 
-/** ローカルデータをリモートへ送信 */
 async function pushToBin() {
   if (!syncCfg.workerUrl) return;
   if (isSyncing) return;
@@ -1247,7 +973,6 @@ async function pushToBin() {
   }
 }
 
-/** 状態を保存して同期 */
 function saveState() {
   saveToLocal();
   pushToBin();
@@ -1276,6 +1001,8 @@ function openSyncSettings() {
   document.getElementById('workerSecretInput').value = syncCfg.secret;
   showSyncStatus(syncStatusVal);
   document.getElementById('syncOverlay').style.display = 'flex';
+  updatePushUI();
+  document.getElementById('pushStatusMsg').style.display = 'none';
 }
 function closeSyncSettings() { document.getElementById('syncOverlay').style.display = 'none'; }
 
@@ -1293,7 +1020,6 @@ async function connectSync() {
   localStorage.setItem('ejector_secret',    secret);
   syncCfg = { workerUrl, secret };
 
-  // 接続テスト（取得）
   await pullFromBin();
   if (syncStatusVal !== 'error') closeSyncSettings();
 }
@@ -1310,17 +1036,85 @@ function disconnectSync() {
 }
 
 // ══════════════════════════════════════════════
+//  ⏩ タイムシフト機能
+// ══════════════════════════════════════════════
+let timeShiftMinutes = 0;
+
+function openTimeShift() {
+  timeShiftMinutes = 0;
+  updateTimeShiftPreview();
+  document.getElementById('timeShiftCustom').value = '';
+  document.getElementById('timeShiftOverlay').style.display = 'flex';
+}
+
+function closeTimeShift() {
+  document.getElementById('timeShiftOverlay').style.display = 'none';
+  timeShiftMinutes = 0;
+}
+
+function addShiftMin(delta) {
+  timeShiftMinutes += delta;
+  updateTimeShiftPreview();
+}
+
+function applyCustomShift() {
+  const val = parseInt(document.getElementById('timeShiftCustom').value);
+  if (!isNaN(val)) {
+    timeShiftMinutes = val;
+    updateTimeShiftPreview();
+  }
+}
+
+function updateTimeShiftPreview() {
+  const el = document.getElementById('timeShiftPreview');
+  const abs = Math.abs(timeShiftMinutes);
+  const h = Math.floor(abs / 60), m = abs % 60;
+  const sign = timeShiftMinutes >= 0 ? '＋' : '−';
+  const timeStr = h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
+  el.textContent = timeShiftMinutes === 0 ? '0分' : `${sign}${timeStr}`;
+  el.className = `timeshift-display${timeShiftMinutes < 0 ? ' negative' : ''}`;
+}
+
+function applyTimeShift() {
+  if (timeShiftMinutes === 0) { closeTimeShift(); return; }
+
+  const dk = offsetToDateKey(currentDayOffset);
+  const dayTasks = state.tasks.filter(t => isTaskForToday(t, currentDayOffset));
+
+  dayTasks.forEach(task => {
+    const currentStart = getTaskStart(task, currentDayOffset);
+    const newStart = Math.max(0, Math.min(1439, currentStart + timeShiftMinutes));
+
+    if (task.repeatMode !== 'none') {
+      // 繰り返しタスク → 今日のみオーバーライド
+      if (!task.overrides) task.overrides = {};
+      task.overrides[dk] = { start: newStart };
+    } else {
+      // 通常タスク → 直接更新
+      task.start = newStart;
+    }
+  });
+
+  closeTimeShift();
+  saveState();
+  renderAll();
+
+  const abs = Math.abs(timeShiftMinutes);
+  const h = Math.floor(abs / 60), m = abs % 60;
+  const sign = timeShiftMinutes >= 0 ? '+' : '-';
+  const timeStr = h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
+  showToast(`${sign}${timeStr} ずらしました`);
+}
+
+// ══════════════════════════════════════════════
 //  LOGIC
 // ══════════════════════════════════════════════
 function isTaskForToday(task, offset) {
   const dk = offsetToDateKey(offset);
 
-  // 今日のみ削除されている場合は非表示
   if (task.deletedDates && task.deletedDates.includes(dk)) return false;
-
   if (!task.allocated) return false;
 
-  // 登録日より前のオフセットには表示しない
   const created = task.createdOffset !== undefined ? task.createdOffset : 0;
   if (dk < created) return false;
 
@@ -1344,7 +1138,6 @@ function isTaskForToday(task, offset) {
   return false;
 }
 
-/** ★ バーチカルは起床〜就寝の間だけ */
 function getTimelineRange(dayTasks) {
   const wake  = dayTasks.find(t => t.title.includes('起床'));
   const sleep = dayTasks.find(t => t.title.includes('就寝'));
@@ -1366,7 +1159,6 @@ function renderAll() {
   updateDateDisplay();
   renderWeekNav();
 
-  // あとでリストの長押し複製
   document.querySelectorAll('.later-card[data-task-id]').forEach(card => {
     const id = parseInt(card.getAttribute('data-task-id'));
     setupLongPress(card, id);
@@ -1374,7 +1166,6 @@ function renderAll() {
 
   const tw = document.getElementById('tlWrap');
   if (currentDayOffset === 0) {
-    // 描画後に現在時刻行へスクロール
     requestAnimationFrame(() => {
       const nowRow = tw.querySelector('.tl-now-row');
       if (nowRow) {
@@ -1390,8 +1181,8 @@ function renderAll() {
 function computeColumns(tasks) {
   const sorted = [...tasks].sort((a, b) => a.start - b.start);
   const cols = [];
-  const colMap = new Map();   // taskId -> 列番号
-  const spanMap = new Map();  // taskId -> そのタスクが属するグループの最大列数
+  const colMap = new Map();
+  const spanMap = new Map();
 
   sorted.forEach(task => {
     const end = task.start + task.duration;
@@ -1410,18 +1201,16 @@ function computeColumns(tasks) {
     }
   });
 
-  // 各タスクが重なるグループで何列使うかを計算
   sorted.forEach(task => {
     const taskStart = task.start;
     const taskEnd   = task.start + task.duration;
-    // 同じ時間帯に重なる全タスクを探す
     let maxCol = 0;
     sorted.forEach(other => {
       if (other.start < taskEnd && other.start + other.duration > taskStart) {
         maxCol = Math.max(maxCol, colMap.get(other.id) || 0);
       }
     });
-    spanMap.set(task.id, maxCol + 1); // 列数 = 最大列番号+1
+    spanMap.set(task.id, maxCol + 1);
   });
 
   return { colMap, spanMap, totalCols: cols.length };
@@ -1435,8 +1224,8 @@ function getTaskStart(task, offset) {
   return task.start;
 }
 
-const BLOCK_MIN_H = 52; // タスク行の最小高さpx
-const GAP_MIN_H   = 36; // 空き時間行の最小高さpx
+const BLOCK_MIN_H = 52;
+const GAP_MIN_H   = 36;
 
 function renderTimeline(dayTasks, range) {
   const tl = document.getElementById('timeline');
@@ -1450,20 +1239,12 @@ function renderTimeline(dayTasks, range) {
   const tasksWithStart = dayTasks.map(t => ({ ...t, start: getTaskStart(t, currentDayOffset) }));
   const { colMap, spanMap } = computeColumns(tasksWithStart);
 
-  // グループ化：同じ開始時刻or重なりタスクをまとめる
-  // 重複しないシーケンシャルなイベント列を構築
-  let cursor = range.start;
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   let nowInserted = false;
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
 
-  // タスクをstart順に並べ、gap→taskの繰り返し
-  const events = []; // {type:'task'|'gap', ...}
-  let lastEnd = range.start;
-
-  // まずグループ（同時間帯に重なるタスク群）を作る
+  const sorted = [...tasksWithStart].sort((a,b) => a.start - b.start);
   const groups = [];
   let i = 0;
-  const sorted = [...tasksWithStart].sort((a,b) => a.start - b.start);
   while (i < sorted.length) {
     const grp = [sorted[i]];
     let grpEnd = sorted[i].start + sorted[i].duration;
@@ -1476,7 +1257,6 @@ function renderTimeline(dayTasks, range) {
     groups.push({ tasks: grp, start: grp[0].start, end: grpEnd });
   }
 
-  // gap → group → gap … の順で描画
   let pos = range.start;
   const renderItems = [];
   groups.forEach(grp => {
@@ -1488,7 +1268,6 @@ function renderTimeline(dayTasks, range) {
 
   renderItems.forEach(item => {
     if (item.type === 'gap') {
-      // 現在時刻ラインを挿入（gap内）
       if (!nowInserted && currentDayOffset === 0 && nowMin >= item.start && nowMin <= item.end) {
         nowInserted = true;
         if (nowMin > item.start) appendGapRow(tl, item.start, nowMin, false);
@@ -1496,19 +1275,16 @@ function renderTimeline(dayTasks, range) {
         if (nowMin < item.end) appendGapRow(tl, nowMin, item.end, true);
         return;
       }
-      // 過去の空き時間（今日かつ終了が現在時刻以前、または過去日）
       if (currentDayOffset < 0) return;
       if (currentDayOffset === 0 && item.end <= nowMin) return;
       appendGapRow(tl, item.start, item.end, true);
     } else {
-      // nowMin がグループ開始前 → グループの前に now ライン
       if (!nowInserted && currentDayOffset === 0 && nowMin <= item.start) {
         nowInserted = true;
         appendNowRow(tl);
       }
-      // nowMin がグループ内部 → プログレス背景で表現するので now ラインは挿入しない
       if (!nowInserted && currentDayOffset === 0 && nowMin > item.start && nowMin < item.end) {
-        nowInserted = true; // ライン挿入はスキップ、プログレスで代替
+        nowInserted = true;
       }
       appendGroupRow(tl, item.tasks, colMap, spanMap, MAX_COLS);
     }
@@ -1525,9 +1301,7 @@ function appendNowRow(tl) {
 }
 
 function appendGapRow(tl, startMin, endMin, showChips) {
-  // 過去日は空き時間を表示しない
   if (currentDayOffset < 0) return;
-  // 今日かつ完全に過去の空き時間は描画しない
   if (currentDayOffset === 0) {
     const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
     if (endMin <= nowMin) return;
@@ -1546,7 +1320,6 @@ function appendGapRow(tl, startMin, endMin, showChips) {
     if (t.deletedDates && t.deletedDates.includes(dk)) return false;
     if (t.repeatMode !== 'none') {
       if (!isRepeatMatchDay(t, currentDayOffset)) return false;
-      // 今日のみコピーがタイムラインに存在する場合は非表示
       const hasTodayCopy = state.tasks.some(other =>
         other.repeatMode === 'none' &&
         other.allocated &&
@@ -1616,7 +1389,7 @@ function appendGapRow(tl, startMin, endMin, showChips) {
   tl.appendChild(row);
 }
 
-function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = false) {
+function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
   const row = document.createElement('div');
   row.className = 'tl-row tl-task';
   row.style.minHeight = BLOCK_MIN_H + 'px';
@@ -1635,13 +1408,12 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
   sorted.forEach(task => {
     const origTask = state.tasks.find(t => t.id === task.id);
     if (!origTask) return;
-    const done      = origTask.doneDates.includes(offsetToDateKey(currentDayOffset));
+    const dk = offsetToDateKey(currentDayOffset);
+    const done      = origTask.doneDates.includes(dk);
     const isSpecial = origTask.title.includes('起床') || origTask.title.includes('就寝');
 
-    // 進行中かどうかを判定してプログレスを計算
     const taskStart = task.start;
     const taskEnd   = task.start + origTask.duration;
-    // 過去日は全タスクを100%塗る、今日は経過時間分塗る
     const isPastDay    = currentDayOffset < 0;
     const isInProgress = !isPastDay && nowMin > taskStart && nowMin < taskEnd;
     const isPassed     = isPastDay || nowMin >= taskEnd;
@@ -1657,25 +1429,82 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
     }
     el.draggable = !isSpecial;
     if (!isSpecial) el.ondragstart = e => e.dataTransfer.setData('taskId', origTask.id);
-    el.onclick = () => openEdit(origTask.id);
+
+    // サブタスクがある場合はユニークIDを付与
+    const blockId = `block-${origTask.id}`;
+    el.setAttribute('data-block-id', blockId);
+
     if (!isSpecial) setupLongPress(el, origTask.id);
 
-    const cbHTML = isSpecial ? '' :
-      `<input type="checkbox" class="task-checkbox" ${done?'checked':''} onclick="event.stopPropagation();toggleDone(${origTask.id})">`;
+    const subs = origTask.subtasks || [];
+    const hasSubs = subs.length > 0;
+    const doneKey = `done_${dk}`;
+    const subDoneCount = subs.filter(s => s[doneKey]).length;
 
-    el.innerHTML = `${cbHTML}
-      <div style="flex:1;overflow:hidden;min-width:0;">
-        <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          ${origTask.title}${origTask.repeatMode!=='none'?' <small style="opacity:0.6">🔁</small>':''}
+    // サブタスクの進捗テキスト
+    const subProgressText = hasSubs
+      ? `<button class="subtask-toggle-btn" onclick="event.stopPropagation();toggleInlineSubtasks('${blockId}')">▼ ${subDoneCount}/${subs.length}</button>`
+      : '';
+
+    el.innerHTML = `
+      <div class="block-header">
+        ${isSpecial ? '' : `<input type="checkbox" class="task-checkbox" ${done?'checked':''} onclick="event.stopPropagation();toggleDone(${origTask.id})">`}
+        <div style="flex:1;overflow:hidden;min-width:0;">
+          <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${origTask.title}${origTask.repeatMode!=='none'?' <small style="opacity:0.6">🔁</small>':''}
+          </div>
+          <div style="font-size:11px;color:var(--ink3);display:flex;align-items:center;gap:4px;">
+            <span>${origTask.duration}分</span>${subProgressText}
+          </div>
         </div>
-        <div style="font-size:11px;color:var(--ink3);">${origTask.duration}分${renderSubtaskProgress(origTask, currentDayOffset)}</div>
+        <button style="font-size:18px;color:var(--ink3);padding:2px 4px;flex-shrink:0;" onclick="event.stopPropagation();openEdit(${origTask.id})">✏️</button>
       </div>`;
+
+    // インラインサブタスクエリア
+    if (hasSubs) {
+      const subsDiv = document.createElement('div');
+      subsDiv.className = 'block-subtasks';
+      subsDiv.id = `subtasks-${blockId}`;
+      subs.forEach((s, idx) => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = `block-subtask-item ${s[doneKey] ? 'done' : ''}`;
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!s[doneKey];
+        cb.onclick = (e) => {
+          e.stopPropagation();
+          toggleSubtaskInline(origTask.id, idx, cb.checked);
+        };
+        const label = document.createElement('span');
+        label.textContent = s.title;
+        itemDiv.appendChild(cb);
+        itemDiv.appendChild(label);
+        subsDiv.appendChild(itemDiv);
+      });
+      el.appendChild(subsDiv);
+    }
+
     contentCol.appendChild(el);
   });
 
   row.appendChild(timeCol);
   row.appendChild(contentCol);
   tl.appendChild(row);
+}
+
+function toggleInlineSubtasks(blockId) {
+  const subsDiv = document.getElementById(`subtasks-${blockId}`);
+  if (subsDiv) subsDiv.classList.toggle('open');
+}
+
+// インラインサブタスクのチェックをトグル
+function toggleSubtaskInline(taskId, subtaskIndex, checked) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task || !task.subtasks) return;
+  const doneKey = `done_${offsetToDateKey(currentDayOffset)}`;
+  task.subtasks[subtaskIndex][doneKey] = checked;
+  saveState();
+  renderAll();
 }
 
 function makeTimeCol(timeStr) {
@@ -1685,19 +1514,13 @@ function makeTimeCol(timeStr) {
   return col;
 }
 
-// 使わなくなった関数（互換のため残す）
 function positionBlocksByColumn() {}
 
-// ──── タッチドラッグ（スマホでリストからタイムラインへ） ────
+// ──── タッチドラッグ ────
 let touchDragTaskId = null;
 let touchClone      = null;
 
-function onTouchStart(e) {
-  // タイムライン上のブロックはタッチ移動不要（タップで編集）
-}
-
 function enableLaterTouchDrag() {
-  // later-listへの委任
   document.getElementById('later-list').addEventListener('touchstart', e => {
     const card = e.target.closest('.later-card');
     if (!card) return;
@@ -1714,7 +1537,6 @@ function enableLaterTouchDrag() {
       touchClone.style.left = (t.clientX - 40) + 'px';
       touchClone.style.top  = (t.clientY - 20) + 'px';
     }
-    // ハイライト
     const el = document.elementFromPoint(t.clientX, t.clientY);
     document.querySelectorAll('.free-gap').forEach(g => g.classList.remove('drag-over'));
     const gap = el && el.closest('.free-gap');
@@ -1728,7 +1550,6 @@ function enableLaterTouchDrag() {
     const el = document.elementFromPoint(t.clientX, t.clientY);
     const gap = el && el.closest('.free-gap');
     if (gap) {
-      // gapのtopからstart時刻を逆算
       const topPx  = parseInt(gap.style.top);
       const start  = currentRange.start + topPx;
       const task   = state.tasks.find(tk => tk.id === touchDragTaskId);
@@ -1757,38 +1578,23 @@ function isRepeatMatchDay(task, offset) {
   return false;
 }
 
-// startMin/endMin: 分単位の開始・終了
-// topPx/heightPx: absolute配置のpx値
-
-// 空き時間のタスクチップをタップ → 時間を設定した状態で編集モーダルを開く
-function openGapTaskEdit(taskId, gapStart) {
-  const task = state.tasks.find(t => t.id === taskId);
-  if (!task) return;
-  editingTaskId = taskId;
-  document.getElementById('editTitle').value = task.title;
-  document.getElementById('editDur').value   = task.duration;
-  document.getElementById('editRepeatMode').value = task.repeatMode;
-  toggleRepeatUI(task.repeatMode, 'editCustomDays');
-
-  // 空き時間の開始時刻をプリセット
-  const hv = Math.floor(gapStart / 60), mv = Math.round((gapStart % 60) / 5) * 5 % 60;
-  document.getElementById('editTimeH').value = hv;
-  document.getElementById('editTimeM').value = mv;
-  document.getElementById('editTimeBox').style.display  = 'block';
-  document.getElementById('moveLaterBtn').style.display = 'none';
-  document.getElementById('editOverlay').style.display  = 'flex';
-}
-
+// ══════════════════════════════════════════════
+//  [FIX] あとでリスト - 翌日も表示されるように修正
+// ══════════════════════════════════════════════
 function renderLaterList() {
   const dk = offsetToDateKey(currentDayOffset);
   const later = state.tasks.filter(t => {
     if (t.allocated) return false;
     if (t.deletedDates && t.deletedDates.includes(dk)) return false;
+
+    // 作成日より前の日付では非表示
     const created = t.createdOffset !== undefined ? t.createdOffset : 0;
     if (dk < created) return false;
+
     if (t.repeatMode !== 'none') {
+      // 繰り返しタスクはその日の繰り返し条件に合う場合のみ
       if (!isRepeatMatchDay(t, currentDayOffset)) return false;
-      // 今日のみコピー（repeatMode:'none'）がタイムラインに存在する場合は非表示
+      // 今日のみコピーがタイムラインに存在する場合は非表示
       const hasTodayCopy = state.tasks.some(other =>
         other.repeatMode === 'none' &&
         other.allocated &&
@@ -1798,9 +1604,13 @@ function renderLaterList() {
       if (hasTodayCopy) return false;
       return true;
     }
-    if (t.createdOffset !== undefined) return dk === t.createdOffset;
+
+    // [FIX] repeatMode='none' の場合：
+    // 作成日以降はずっと表示（翌日以降も消えない）
+    // ※ dk >= created は上でチェック済みなのでここではtrueを返す
     return true;
   });
+
   const container = document.getElementById('later-list');
   const repeatLabel = { daily:'毎日', weekday:'平日', weekend:'休日', 'month-end':'月末', custom:'曜日指定' };
 
@@ -1816,6 +1626,14 @@ function renderLaterList() {
     const repeatBadge = isRepeat
       ? `<span class="later-repeat-badge">🔁 ${repeatLabel[t.repeatMode] || t.repeatMode}</span>`
       : '';
+    // サブタスク進捗バッジ
+    const subs = t.subtasks || [];
+    const doneKey = `done_${dk}`;
+    const subDoneCount = subs.filter(s => s[doneKey]).length;
+    const subBadge = subs.length > 0
+      ? `<span style="font-size:10px;color:var(--green);font-weight:700;background:var(--green-dim);border-radius:10px;padding:2px 7px;">☑ ${subDoneCount}/${subs.length}</span>`
+      : '';
+
     return `
       <div class="later-card ${done ? 'completed' : ''} ${isRepeat ? 'repeat' : ''}" draggable="true" data-task-id="${t.id}"
            ondragstart="event.dataTransfer.setData('taskId', ${t.id})" onclick="openEdit(${t.id})">
@@ -1823,13 +1641,36 @@ function renderLaterList() {
                onclick="event.stopPropagation(); toggleDone(${t.id})">
         <div style="flex:1; min-width:0;">
           <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.title}</div>
-          <div style="font-size:11px; color:var(--ink3); display:flex; gap:6px; align-items:center; margin-top:2px;">
-            <span>${t.duration}分</span>${repeatBadge}
+          <div style="font-size:11px; color:var(--ink3); display:flex; gap:6px; align-items:center; margin-top:2px; flex-wrap:wrap;">
+            <span>${t.duration}分</span>${repeatBadge}${subBadge}
           </div>
         </div>
         <div style="color:var(--border2); font-size:20px; flex-shrink:0;">⠿</div>
       </div>`;
   }).join('') || '<div style="text-align:center; color:var(--ink4); padding:40px;">リストは空です</div>';
+}
+
+// 空き時間のタスクチップをタップ
+function openGapTaskEdit(taskId, gapStart) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  editingTaskId = taskId;
+  document.getElementById('editTitle').value = task.title;
+  document.getElementById('editDur').value   = task.duration;
+  document.getElementById('editRepeatMode').value = task.repeatMode;
+  toggleRepeatUI(task.repeatMode, 'editCustomDays');
+
+  const hv = Math.floor(gapStart / 60), mv = Math.round((gapStart % 60) / 5) * 5 % 60;
+  document.getElementById('editTimeH').value = hv;
+  document.getElementById('editTimeM').value = mv;
+  document.getElementById('editTimeBox').style.display  = 'block';
+  document.getElementById('moveLaterBtn').style.display = 'none';
+  // [FIX] openGapTaskEdit でもサブタスクを描画
+  document.getElementById('subtaskInput').value = '';
+  renderSubtaskList(task);
+  document.getElementById('editNotify').checked = !!task.notify;
+  document.getElementById('notifyPermissionMsg').style.display = 'none';
+  document.getElementById('editOverlay').style.display  = 'flex';
 }
 
 // ══════════════════════════════════════════════
@@ -1845,10 +1686,8 @@ function togglePlacementUI(repeatVal) {
   if (!box) return;
   const show = repeatVal !== 'none';
   box.style.display = show ? 'block' : 'none';
-  // タイムラインが選択されている場合のみ開始時間を表示
   const placement = document.getElementById('taskPlacement').value;
   if (timeBox) timeBox.style.display = (show && placement === 'timeline') ? 'block' : 'none';
-  // デフォルトを現在時刻に設定
   if (show && timeBox) {
     const now = new Date();
     const addH = document.getElementById('addTimeH');
@@ -1865,7 +1704,7 @@ function addTask() {
   const title      = document.getElementById('taskTitle').value.trim();
   const dur        = parseInt(document.getElementById('taskDur').value) || 30;
   const repeatMode = document.getElementById('taskRepeatMode').value;
-  const placement  = document.getElementById('taskPlacement').value; // 'timeline' or 'later'
+  const placement  = document.getElementById('taskPlacement').value;
   if (!title) return;
 
   const customDays = [];
@@ -1873,23 +1712,24 @@ function addTask() {
     document.querySelectorAll('#customDays input:checked').forEach(i => customDays.push(parseInt(i.value)));
   }
 
-  const newTask = { id: Date.now(), title, duration: dur, allocated: false, repeatMode, customDays, doneDates: [], createdOffset: offsetToDateKey(currentDayOffset) };
+  const newTask = {
+    id: Date.now(), title, duration: dur, allocated: false,
+    repeatMode, customDays, doneDates: [],
+    createdOffset: offsetToDateKey(currentDayOffset)
+  };
 
   if (repeatMode !== 'none' && placement === 'timeline') {
     const ah = parseInt(document.getElementById('addTimeH')?.value) || 8;
     const am = parseInt(document.getElementById('addTimeM')?.value) || 0;
     newTask.allocated = true; newTask.start = ah * 60 + am;
   } else if (repeatMode !== 'none' && placement === 'later') {
-    // 繰り返し × あとで → allocated=false のまま（終日タスクとしてリストに常駐）
     newTask.allocated = false;
   }
-  // repeatMode=none の場合は常にあとでリスト
 
   state.tasks.push(newTask);
   document.getElementById('taskTitle').value = '';
   document.getElementById('taskRepeatMode').value = 'none';
   document.getElementById('taskPlacement').value = 'timeline';
-  // timeline ラジオをデフォルトに戻す
   const tlRadio = document.querySelector('input[name="taskPlacementR"][value="timeline"]');
   if (tlRadio) tlRadio.checked = true;
   toggleRepeatUI('none');
@@ -1897,7 +1737,6 @@ function addTask() {
 
   saveState();
   renderAll();
-  // 繰り返し×あとで or 繰り返しなし → リストへ
   switchTab((newTask.allocated) ? 'main' : 'later');
 }
 
@@ -1954,10 +1793,9 @@ function openEdit(id) {
     document.getElementById('moveLaterBtn').style.display = 'none';
     document.getElementById('editNotifyBox').style.display = 'none';
   }
-  // 通知チェックボックスの状態を反映
   document.getElementById('editNotify').checked = !!task.notify;
   document.getElementById('notifyPermissionMsg').style.display = 'none';
-  // サブタスクを描画
+  // [FIX] subtasksは常にtask.subtasksから描画（消失バグ防止）
   document.getElementById('subtaskInput').value = '';
   renderSubtaskList(task);
   document.getElementById('editOverlay').style.display = 'flex';
@@ -1965,7 +1803,6 @@ function openEdit(id) {
 
 function closeEdit() { document.getElementById('editOverlay').style.display = 'none'; }
 
-// 繰り返し変更の保留データ
 let pendingRepeatChange = null;
 
 function closeRepeatConfirm() {
@@ -1991,6 +1828,7 @@ function applyRepeatChange(mode) {
         customDays: [],
         doneDates: [],
         notify: task.notify || false,
+        subtasks: task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [], // [FIX] サブタスクも引き継ぐ
       };
       state.tasks.push(todayOnly);
     } else {
@@ -2026,13 +1864,11 @@ function saveEdit() {
   const mv = parseInt(document.getElementById('editTimeM').value) || 0;
   const newStart = hv * 60 + mv;
 
-  // 繰り返しタスクの時間変更検出
   const isRepeat        = task.repeatMode !== 'none';
   const wasAllocated    = task.allocated;
   const timeChanged     = newStart !== (task.start || 0);
   const settingsChanged = newTitle !== task.title || newDur !== task.duration || newRepeat !== task.repeatMode;
 
-  // あとでリストからタイムラインへ初めて配置する場合 → 確認モーダルを出す
   if (isRepeat && !wasAllocated) {
     pendingRepeatChange = { task, newStart, fromLater: true };
     const h = Math.floor(newStart/60), m = newStart%60;
@@ -2046,7 +1882,6 @@ function saveEdit() {
     return;
   }
 
-  // すでにタイムラインにある繰り返しタスクの時間変更
   if (isRepeat && wasAllocated && timeChanged && !settingsChanged) {
     pendingRepeatChange = { task, newStart, fromLater: false };
     const h = Math.floor(newStart/60), m = newStart%60;
@@ -2057,23 +1892,20 @@ function saveEdit() {
     return;
   }
 
-  // 通常保存
   task.title      = newTitle;
   task.duration   = newDur;
   task.repeatMode = newRepeat;
   task.customDays = newCustom;
   task.notify     = document.getElementById('editNotify').checked;
+  // [FIX] subtasksは変更しない（renderSubtaskListで管理されている）
   if (task.allocated || task.repeatMode !== 'none') {
     task.allocated = true;
     if (task.repeatMode === 'none') {
-      // 繰り返しなし：task.start を直接更新
       task.start = newStart;
       task.allocatedOffset = offsetToDateKey(currentDayOffset);
     } else if (timeChanged) {
-      // 繰り返しあり＋時間変更：全日変更として task.start を更新
-      // （タイトル等と同時変更のケースは「今後すべて」扱いとする）
       task.start = newStart;
-      task.overrides = {}; // 既存オーバーライドをクリア
+      task.overrides = {};
     }
   }
   if (!task.allocated && document.getElementById('editTimeBox').style.display !== 'none') {
@@ -2089,14 +1921,11 @@ function deleteTask() {
   if (!task) return;
 
   if (task.repeatMode !== 'none') {
-    // 繰り返しタスク → 確認モーダル
     document.getElementById('deleteConfirmMsg').textContent =
       `「${task.title}」は繰り返しタスクです。今日のみ削除しますか？それともすべての日から削除しますか？`;
-    // 繰り返しタスクは常に「今日のみ削除」を表示
     document.getElementById('deleteTodayBtn').style.display = 'block';
     document.getElementById('deleteConfirmOverlay').style.display = 'flex';
   } else {
-    // 通常タスク → 即削除
     state.tasks = state.tasks.filter(t => t.id !== editingTaskId);
     closeEdit(); saveState(); renderAll();
   }
@@ -2114,7 +1943,6 @@ function applyDelete(mode) {
     if (!task.deletedDates) task.deletedDates = [];
     task.deletedDates.push(offsetToDateKey(currentDayOffset));
   } else {
-    // すべて削除
     state.tasks = state.tasks.filter(t => t.id !== editingTaskId);
   }
 
@@ -2128,7 +1956,6 @@ function moveToLaterFromEdit() {
   const task = state.tasks.find(t => t.id === editingTaskId);
   if (!task) return;
   if (task.repeatMode !== 'none') {
-    // 繰り返しタスク → allocated=false にするだけ（repeatModeは維持）
     task.allocated = false;
     task.start = null;
     task.overrides = {};
@@ -2144,9 +1971,7 @@ function moveToLaterFromEdit() {
 //  UTILITIES
 // ══════════════════════════════════════════════
 function changeDate(dir) { currentDayOffset += dir; renderAll(); }
-
 function goToday() { currentDayOffset = 0; renderAll(); }
-
 function goOffset(offset) { currentDayOffset = offset; renderAll(); }
 
 function renderWeekNav() {
@@ -2193,14 +2018,12 @@ async function manualPull() {
 
 function startAutoSync() {
   if (!syncCfg.workerUrl) return;
-  // 30秒ごとに自動同期
   setInterval(async () => {
     if (!document.hidden) await pullFromBin();
   }, 30000);
 }
 
 let _lastMinute = -1;
-// 通知済みを記録（同じ分に2回鳴らさないため）
 const _notifiedKeys = new Set();
 
 function updateClock() {
@@ -2210,13 +2033,11 @@ function updateClock() {
   if (min !== _lastMinute) {
     _lastMinute = min;
 
-    // 進行中ブロックのプログレスを更新
     document.querySelectorAll('.block.in-progress').forEach(el => {
       const pct = parseFloat(el.style.getPropertyValue('--progress')) || 0;
       el.style.setProperty('--progress', Math.min(pct + 1, 100) + '%');
     });
 
-    // 通知チェック（今日のタスクのみ）
     if (currentDayOffset === 0 && Notification.permission === 'granted') {
       const dayTasks = state.tasks.filter(t => isTaskForToday(t, 0));
       dayTasks.forEach(task => {
@@ -2229,7 +2050,7 @@ function updateClock() {
             body: '開始時刻になりました',
             icon: './icon-192.png',
             badge: './icon-192.png',
-            tag: key, // 同じタスクの重複通知を防ぐ
+            tag: key,
           });
         }
       });
@@ -2257,7 +2078,6 @@ async function handleNotifyToggle(checked) {
     document.getElementById('editNotify').checked = false;
     return;
   }
-  // 未決定 → 許可を求める
   const result = await Notification.requestPermission();
   if (result !== 'granted') {
     document.getElementById('notifyPermissionMsg').style.display = 'block';
@@ -2270,33 +2090,29 @@ async function handleNotifyToggle(checked) {
 // ══════════════════════════════════════════════
 //  REPORT
 // ══════════════════════════════════════════════
-let reportWeekOffset = 0; // 0=今週, -1=先週...
+let reportWeekOffset = 0;
 
 function changeReportWeek(dir) {
   reportWeekOffset += dir;
   renderReport();
 }
 
-// 指定weekOffset週の月〜日のdayOffsetを返す
 function getWeekDayOffsets(weekOffset) {
   const today = new Date();
-  const dow = today.getDay(); // 0=日
-  // 今週の月曜を基準
+  const dow = today.getDay();
   const mondayDelta = dow === 0 ? -6 : 1 - dow;
   const offsets = [];
   for (let d = 0; d < 7; d++) {
     const dayDelta = mondayDelta + weekOffset * 7 + d;
-    // dayOffsetはtodayからの相対日数
     offsets.push(dayDelta);
   }
-  return offsets; // [月, 火, 水, 木, 金, 土, 日] のoffset
+  return offsets;
 }
 
 function renderReport() {
   const offsets = getWeekDayOffsets(reportWeekOffset);
   const today = new Date();
 
-  // 週ラベル
   const mon = new Date(today); mon.setDate(today.getDate() + offsets[0]);
   const sun = new Date(today); sun.setDate(today.getDate() + offsets[6]);
   document.getElementById('reportWeekLabel').textContent =
@@ -2308,11 +2124,9 @@ function renderReport() {
 }
 
 function renderHabitTracker(offsets) {
-  const today = new Date();
   const todayOffset = 0;
   const DAYS = ['月','火','水','木','金','土','日'];
 
-  // 繰り返しタスクのみ対象
   const habitTasks = state.tasks.filter(t => t.repeatMode !== 'none');
   if (habitTasks.length === 0) {
     document.getElementById('habitTracker').innerHTML =
@@ -2323,7 +2137,6 @@ function renderHabitTracker(offsets) {
   const html = habitTasks.map(task => {
     let doneCount = 0, plannedCount = 0;
     const dots = offsets.map((off, i) => {
-      // この日にこのタスクが予定されているか
       const planned = isRepeatMatchDay(task, off) &&
         !(task.deletedDates && task.deletedDates.includes(off));
       const done = task.doneDates.includes(offsetToDateKey(off));
@@ -2352,7 +2165,6 @@ function renderHabitTracker(offsets) {
 }
 
 function renderTimeGraph(offsets) {
-  // タスク別の合計時間（完了済みのみ）
   const taskTimes = {};
 
   offsets.forEach(off => {
@@ -2392,13 +2204,12 @@ function renderTimeGraph(offsets) {
 }
 
 function renderWeeklyReview(offsets) {
-  const today = new Date();
   let totalTasks = 0, doneTasks = 0, totalMin = 0, doneMin = 0;
   let bestDay = null, bestDayCount = 0;
   const DAYS = ['月','火','水','木','金','土','日'];
 
   offsets.forEach((off, i) => {
-    if (off > 0) return; // 未来は除く
+    if (off > 0) return;
     const dayTasks = state.tasks.filter(t => isTaskForToday(t, off));
     const dayDone = dayTasks.filter(t => t.doneDates.includes(offsetToDateKey(off)));
     totalTasks += dayTasks.length;
@@ -2444,7 +2255,6 @@ function setupLongPress(el, taskId) {
   const start = (e) => {
     longPressTimer = setTimeout(() => {
       duplicateTask(taskId);
-      // 触覚フィードバック（対応デバイスのみ）
       if (navigator.vibrate) navigator.vibrate(40);
     }, LONG_PRESS_MS);
   };
@@ -2469,10 +2279,13 @@ function duplicateTask(id) {
     if (copy.start != null) copy.start = (copy.start || 0) + copy.duration;
   }
   copy.createdOffset = offsetToDateKey(currentDayOffset);
+  // [FIX] サブタスクはコピーするが完了状態はリセット
+  if (copy.subtasks) {
+    copy.subtasks = copy.subtasks.map(s => ({ title: s.title }));
+  }
   state.tasks.push(copy);
   saveState();
   renderAll();
-  // 短いフラッシュで複製を知らせる
   showToast(`「${task.title}」を複製しました`);
 }
 
@@ -2496,7 +2309,7 @@ function showToast(msg) {
 }
 
 // ══════════════════════════════════════════════
-//  SUBTASK
+//  SUBTASK（編集モーダル用）
 // ══════════════════════════════════════════════
 function renderSubtaskProgress(task, offset) {
   const subs = task.subtasks;
@@ -2508,6 +2321,9 @@ function renderSubtaskProgress(task, offset) {
 
 function renderSubtaskList(task) {
   const container = document.getElementById('subtaskList');
+  // [FIX] taskが渡されていない場合はeditingTaskIdから取得
+  if (!task) task = state.tasks.find(t => t.id === editingTaskId);
+  if (!task) return;
   const subs = task.subtasks || [];
   const doneKey = `done_${offsetToDateKey(currentDayOffset)}`;
   container.innerHTML = subs.map((s, i) => `
@@ -2599,7 +2415,6 @@ async function subscribePush() {
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     });
-    // Workerにサブスクリプション情報を送信
     const res = await fetch(syncCfg.workerUrl + '/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(syncCfg.secret ? { 'X-Secret': syncCfg.secret } : {}) },
@@ -2618,7 +2433,6 @@ async function unsubscribePush() {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
     if (!sub) { await updatePushUI(); return; }
-    // Workerからも削除
     if (syncCfg.workerUrl) {
       await fetch(syncCfg.workerUrl + '/subscribe', {
         method: 'DELETE',
@@ -2634,17 +2448,10 @@ async function unsubscribePush() {
   }
 }
 
-// 同期設定を開いたときにPushUIを更新
-const _origOpenSyncSettings = openSyncSettings;
-function openSyncSettings() {
-  _origOpenSyncSettings();
-  updatePushUI();
-  document.getElementById('pushStatusMsg').style.display = 'none';
-}
-
-
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
 window.onload = async () => {
-  // 時間セレクトを動的生成
   const selH = document.getElementById('editTimeH');
   const selM = document.getElementById('editTimeM');
   for (let i = 0; i < 24; i++) {
@@ -2657,7 +2464,6 @@ window.onload = async () => {
     o.value = m; o.textContent = String(m).padStart(2,'0');
     selM.appendChild(o);
   });
-  // 追加フォームの開始時間セレクトも生成
   const addH = document.getElementById('addTimeH');
   const addM = document.getElementById('addTimeM');
   if (addH && addM) {
@@ -2674,7 +2480,7 @@ window.onload = async () => {
   }
 
   loadFromLocal();
-  migrateTaskDates(); // 旧データを絶対日付キーに変換
+  migrateTaskDates();
   loadSyncConfig();
 
   if (syncCfg.workerUrl) {
@@ -2686,34 +2492,25 @@ window.onload = async () => {
   setInterval(updateClock, 1000);
   updateClock();
   enableLaterTouchDrag();
-  window.addEventListener('resize', () => positionBlocksByColumn());
+  window.addEventListener('resize', () => renderAll());
   startAutoSync();
 };
 
-// タブに戻ってきたとき（スマホでアプリ切り替え後など）に同期
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) pullFromBin();
 });
 
-// Service Worker 登録（PWA対応）
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
-      // 起動のたびに更新チェック
       reg.update();
-
-      // 新しいSWが見つかったら即リロード
       reg.addEventListener('updatefound', () => {
         const newSW = reg.installing;
         newSW.addEventListener('statechange', () => {
-          if (newSW.state === 'activated') {
-            window.location.reload();
-          }
+          if (newSW.state === 'activated') window.location.reload();
         });
       });
-
-      // 別タブで更新されたSWが制御権を取ったらリロード
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();
       });
