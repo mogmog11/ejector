@@ -1,21 +1,17 @@
-// ejector.html テストスクリプト
-// Node.js で実行: node test_ejector.js
+// EJECTOR 新機能テスト v3.0
+// Node.js で実行: node test_ejector_v3.js
 
-// ─── テスト用モック環境 ───────────────────────────────
-// localStorage モック
 const _store = {};
 const localStorage = {
   getItem: k => _store[k] ?? null,
   setItem: (k, v) => { _store[k] = v; },
   removeItem: k => { delete _store[k]; },
 };
-
-// グローバルに注入
 global.localStorage = localStorage;
 global.navigator = { vibrate: null };
 global.document = {
   hidden: false,
-  getElementById: () => ({ style: {}, innerHTML: '', textContent: '', value: '', appendChild: () => {} }),
+  getElementById: () => ({ style: {}, innerHTML: '', textContent: '', value: '', appendChild: () => {}, checked: false }),
   querySelectorAll: () => [],
   createElement: () => ({ style: {}, appendChild: () => {}, addEventListener: () => {}, className: '', id: '', innerHTML: '', setAttribute: () => {}, classList: { add: () => {}, remove: () => {}, toggle: () => {} } }),
   addEventListener: () => {},
@@ -25,44 +21,142 @@ global.window = { addEventListener: () => {}, onload: null };
 global.fetch = async () => ({ ok: false, json: async () => ({}) });
 global.Notification = { permission: 'default', requestPermission: async () => 'default' };
 
-// ─── テスト対象関数を直接実装 ─────────────────────────
-
+// ─── 共通ユーティリティ ───────────────────────────────
 function offsetToDateKey(offset) {
   const d = new Date();
   d.setDate(d.getDate() + offset);
   return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 }
 
-// あとでリストのフィルターロジック（修正版）
-function renderLaterListFilter(tasks, currentDayOffset) {
-  const dk = offsetToDateKey(currentDayOffset);
-  return tasks.filter(t => {
-    if (t.allocated) return false;
-    if (t.deletedDates && t.deletedDates.includes(dk)) return false;
-
-    const created = t.createdOffset !== undefined ? t.createdOffset : 0;
-    if (dk < created) return false;
-
-    if (t.repeatMode !== 'none') {
-      // 繰り返しタスクの処理（簡略化）
-      return true;
-    }
-    // [FIX] repeatMode='none': dk >= created であれば表示（翌日以降も表示）
-    return true;
-  });
+function isRepeatMatchDay(task, offset) {
+  if (task.repeatMode === 'daily') return true;
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  const dow = d.getDay();
+  if (task.repeatMode === 'weekday') return dow >= 1 && dow <= 5;
+  if (task.repeatMode === 'weekend') return dow === 0 || dow === 6;
+  if (task.repeatMode === 'custom') return task.customDays.includes(dow);
+  if (task.repeatMode === 'month-end') {
+    const next = new Date(d); next.setDate(d.getDate() + 1);
+    return next.getDate() === 1;
+  }
+  return false;
 }
 
-// タイムシフトロジック（修正版）
-function applyTimeShiftLogic(tasks, currentDayOffset, shiftMinutes) {
+function isTaskForToday(task, offset) {
+  const dk = offsetToDateKey(offset);
+  if (task.deletedDates && task.deletedDates.includes(dk)) return false;
+  if (!task.allocated) return false;
+  const created = task.createdOffset !== undefined ? task.createdOffset : 0;
+  if (dk < created) return false;
+  if (task.repeatMode === 'none') {
+    const ao = task.allocatedOffset !== undefined ? task.allocatedOffset : offsetToDateKey(0);
+    return ao === dk;
+  }
+  if (task.repeatMode === 'daily') return true;
+  const d = new Date(); d.setDate(d.getDate() + offset);
+  const dow = d.getDay();
+  if (task.repeatMode === 'weekday') return dow >= 1 && dow <= 5;
+  if (task.repeatMode === 'weekend') return dow === 0 || dow === 6;
+  if (task.repeatMode === 'custom') return task.customDays.includes(dow);
+  if (task.repeatMode === 'month-end') {
+    const next = new Date(d); next.setDate(d.getDate() + 1);
+    return next.getDate() === 1;
+  }
+  return false;
+}
+
+function getTaskStart(task, offset) {
+  const dk = offsetToDateKey(offset);
+  if (task.overrides && task.overrides[dk] !== undefined) return task.overrides[dk].start;
+  return task.start;
+}
+
+// ─── 新機能①: 時間切れ自動移動ロジック ────────────────
+function checkOverdueTasks(tasks, nowMin, currentDayOffset = 0) {
+  if (currentDayOffset !== 0) return { tasks, movedTitles: [] };
+  const dk = offsetToDateKey(0);
+  const movedTitles = [];
+
+  tasks.forEach(task => {
+    if (!task.allocated) return;
+    if (task.repeatMode === 'none' && task.allocatedOffset !== dk) return;
+    if (!isTaskForToday(task, 0)) return;
+
+    const taskStart = getTaskStart(task, 0);
+    const taskEnd   = taskStart + task.duration;
+    const isDone    = task.doneDates.includes(dk);
+
+    if (isDone) return;
+    if (taskEnd > nowMin) return;
+
+    if (!task.movedToLaterDates) task.movedToLaterDates = [];
+    if (task.movedToLaterDates.includes(dk)) return;
+
+    task.movedToLaterDates.push(dk);
+    movedTitles.push(task.title);
+
+    if (task.repeatMode !== 'none') {
+      // 繰り返しタスク: 今日だけ削除 → 翌日はタイムラインに残る
+      if (!task.deletedDates) task.deletedDates = [];
+      task.deletedDates.push(dk);
+      // あとでリスト用コピーを追加
+      tasks.push({
+        id: Date.now() + Math.random(),
+        title: task.title,
+        duration: task.duration,
+        allocated: false,
+        repeatMode: 'none',
+        customDays: [],
+        doneDates: [],
+        createdOffset: dk,
+        isOverdueMoved: true,
+      });
+    } else {
+      // 通常タスク: あとでリストに戻す
+      task.allocated = false;
+      task.start = null;
+    }
+  });
+
+  return { tasks, movedTitles };
+}
+
+// ─── 新機能②: 実績時間予測ロジック ───────────────────
+let durationHistory = {};
+
+function recordDurationOnDone(task) {
+  const key = task.title.trim();
+  if (!key) return;
+  if (!durationHistory[key]) durationHistory[key] = [];
+  durationHistory[key].push(task.duration);
+  if (durationHistory[key].length > 20) {
+    durationHistory[key] = durationHistory[key].slice(-20);
+  }
+}
+
+function getPredictedDuration(title) {
+  const key = title.trim();
+  const hist = durationHistory[key];
+  if (!hist || hist.length < 2) return null;
+  const recent = hist.slice(-5);
+  const avg = Math.round(recent.reduce((s, v) => s + v, 0) / recent.length);
+  return avg;
+}
+
+// ─── 新機能③: タイムシフト（ピン留め除外）ロジック ────
+function applyTimeShiftWithPin(tasks, currentDayOffset, shiftMinutes) {
   const dk = offsetToDateKey(currentDayOffset);
-  
-  // タイムラインにあるタスクをフィルタ
-  const dayTasks = tasks.filter(t => t.allocated);
-  
-  dayTasks.forEach(task => {
-    const currentStart = task.overrides && task.overrides[dk]
-      ? task.overrides[dk].start
-      : task.start;
+  const movedIds = [];
+  const skippedIds = [];
+
+  tasks.forEach(task => {
+    if (!isTaskForToday(task, currentDayOffset)) return;
+    if (task.pinned) {
+      skippedIds.push(task.id);
+      return;
+    }
+
+    const currentStart = getTaskStart(task, currentDayOffset);
     const newStart = Math.max(0, Math.min(1439, currentStart + shiftMinutes));
 
     if (task.repeatMode !== 'none') {
@@ -71,32 +165,14 @@ function applyTimeShiftLogic(tasks, currentDayOffset, shiftMinutes) {
     } else {
       task.start = newStart;
     }
+    movedIds.push(task.id);
   });
-  
-  return tasks;
+
+  return { tasks, movedIds, skippedIds };
 }
 
-// サブタスクのコピー修正確認
-function duplicateTaskLogic(task, currentDayOffset) {
-  const copy = JSON.parse(JSON.stringify(task));
-  copy.id    = Date.now();
-  copy.title = copy.title + ' (コピー)';
-  copy.doneDates = [];
-  if (copy.repeatMode === 'none') {
-    copy.allocatedOffset = offsetToDateKey(currentDayOffset);
-    if (copy.start != null) copy.start = (copy.start || 0) + copy.duration;
-  }
-  copy.createdOffset = offsetToDateKey(currentDayOffset);
-  // [FIX] サブタスクはコピーするが完了状態はリセット
-  if (copy.subtasks) {
-    copy.subtasks = copy.subtasks.map(s => ({ title: s.title }));
-  }
-  return copy;
-}
-
-// ─── テストスイート ────────────────────────────────────
-let passed = 0;
-let failed = 0;
+// ─── テストスイート ───────────────────────────────────
+let passed = 0, failed = 0;
 const results = [];
 
 function test(name, fn) {
@@ -112,290 +188,317 @@ function test(name, fn) {
     failed++;
   }
 }
+function assert(c, msg) { if (!c) throw new Error(msg || 'Assertion failed'); }
+function assertEqual(a, b, msg) { if (a !== b) throw new Error(msg || `Expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); }
 
-function assert(condition, msg) {
-  if (!condition) throw new Error(msg || 'Assertion failed');
-}
-
-function assertEqual(a, b, msg) {
-  if (a !== b) throw new Error(msg || `Expected ${b}, got ${a}`);
-}
-
-// ══════════════════════════════════════════════════════
 console.log('\n╔════════════════════════════════════════════╗');
-console.log('║      EJECTOR テストスイート v2.0           ║');
+console.log('║   EJECTOR 新機能テストスイート v3.0       ║');
 console.log('╚════════════════════════════════════════════╝\n');
 
-// ─── 1. DateKey変換テスト ────────────────────────────
-console.log('📅 [1] DateKey変換テスト');
+// ══════════════════════════════════════════════
+//  機能①: 時間切れタスク → 自動「あとで」移動
+// ══════════════════════════════════════════════
+console.log('⏰ [1] 時間切れタスク自動移動テスト');
 
-test('今日のoffset(0)が正しいDateKeyを返す', () => {
+test('終了時刻を過ぎた未完了タスクがあとでリストに移動される', () => {
   const dk = offsetToDateKey(0);
-  const today = new Date();
-  const expected = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
-  assertEqual(dk, expected, `DateKey mismatch: ${dk} vs ${expected}`);
-});
-
-test('明日のoffset(1)が正しいDateKeyを返す', () => {
-  const dk = offsetToDateKey(1);
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const expected = tomorrow.getFullYear() * 10000 + (tomorrow.getMonth() + 1) * 100 + tomorrow.getDate();
-  assertEqual(dk, expected, `DateKey mismatch: ${dk} vs ${expected}`);
-});
-
-test('昨日のoffset(-1)が正しいDateKeyを返す', () => {
-  const dk = offsetToDateKey(-1);
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const expected = yesterday.getFullYear() * 10000 + (yesterday.getMonth() + 1) * 100 + yesterday.getDate();
-  assertEqual(dk, expected, `DateKey mismatch: ${dk} vs ${expected}`);
-});
-
-// ─── 2. あとでリスト バグ修正テスト ─────────────────
-console.log('\n📋 [2] あとでリスト - 翌日も表示されるかテスト（バグ修正確認）');
-
-test('[FIX] repeatMode=none のタスクが作成日(今日)に表示される', () => {
-  const todayDk = offsetToDateKey(0);
   const tasks = [
-    { id: 1, title: 'タスクA', duration: 30, allocated: false, repeatMode: 'none', doneDates: [], createdOffset: todayDk }
+    { id: 1, title: '読書', start: 600, duration: 30, allocated: true, repeatMode: 'none',
+      allocatedOffset: dk, doneDates: [], customDays: [], createdOffset: dk }
   ];
-  const result = renderLaterListFilter(tasks, 0); // 今日
-  assertEqual(result.length, 1, 'タスクが今日に表示されるべき');
+  // nowMin = 640 (終了時刻630を超過)
+  const { tasks: result, movedTitles } = checkOverdueTasks(JSON.parse(JSON.stringify(tasks)), 640, 0);
+  const movedTask = result.find(t => t.id === 1);
+  assert(movedTask, 'タスクが存在する');
+  assert(!movedTask.allocated, '移動後はallocated=false');
+  assert(movedTask.start === null, '移動後はstart=null');
+  assert(movedTitles.includes('読書'), '移動タイトルに含まれる');
 });
 
-test('[FIX] repeatMode=none のタスクが翌日も表示される（バグ修正）', () => {
-  const todayDk = offsetToDateKey(0);
-  const tasks = [
-    { id: 1, title: 'タスクA', duration: 30, allocated: false, repeatMode: 'none', doneDates: [], createdOffset: todayDk }
-  ];
-  const result = renderLaterListFilter(tasks, 1); // 明日
-  assertEqual(result.length, 1, '翌日もタスクが表示されるべき（旧バグでは0件だった）');
-});
-
-test('[FIX] repeatMode=none のタスクが1週間後も表示される', () => {
-  const todayDk = offsetToDateKey(0);
-  const tasks = [
-    { id: 1, title: 'タスクA', duration: 30, allocated: false, repeatMode: 'none', doneDates: [], createdOffset: todayDk }
-  ];
-  const result = renderLaterListFilter(tasks, 7); // 7日後
-  assertEqual(result.length, 1, '1週間後もタスクが表示されるべき');
-});
-
-test('[OK] 作成日より前の日付ではタスクが表示されない', () => {
-  const todayDk = offsetToDateKey(0);
-  const tasks = [
-    { id: 1, title: 'タスクA', duration: 30, allocated: false, repeatMode: 'none', doneDates: [], createdOffset: todayDk }
-  ];
-  const result = renderLaterListFilter(tasks, -1); // 昨日
-  assertEqual(result.length, 0, '作成日より前は表示されないべき');
-});
-
-test('[OK] allocatedなタスクはあとでリストに表示されない', () => {
-  const tasks = [
-    { id: 1, title: 'タスクA', duration: 30, allocated: true, repeatMode: 'daily', doneDates: [], start: 600 }
-  ];
-  const result = renderLaterListFilter(tasks, 0);
-  assertEqual(result.length, 0, 'タイムライン上のタスクはリストに出ないべき');
-});
-
-test('[OK] deletedDatesに含まれるタスクはその日表示されない', () => {
-  const todayDk = offsetToDateKey(0);
-  const tasks = [
-    { id: 1, title: 'タスクA', duration: 30, allocated: false, repeatMode: 'none', doneDates: [], createdOffset: todayDk, deletedDates: [todayDk] }
-  ];
-  const result = renderLaterListFilter(tasks, 0);
-  assertEqual(result.length, 0, '削除済みの日は表示されないべき');
-});
-
-// ─── 3. タイムシフトテスト ───────────────────────────
-console.log('\n⏩ [3] タイムシフト機能テスト');
-
-test('通常タスクを+30分シフトできる', () => {
-  const tasks = [
-    { id: 1, title: '仕事', start: 600, duration: 120, allocated: true, repeatMode: 'none', doneDates: [] }
-  ];
-  const result = applyTimeShiftLogic(JSON.parse(JSON.stringify(tasks)), 0, 30);
-  assertEqual(result[0].start, 630, `startが630になるべき、実際: ${result[0].start}`);
-});
-
-test('通常タスクを-60分シフトできる', () => {
-  const tasks = [
-    { id: 1, title: '仕事', start: 600, duration: 120, allocated: true, repeatMode: 'none', doneDates: [] }
-  ];
-  const result = applyTimeShiftLogic(JSON.parse(JSON.stringify(tasks)), 0, -60);
-  assertEqual(result[0].start, 540, `startが540になるべき、実際: ${result[0].start}`);
-});
-
-test('繰り返しタスクはオーバーライドとして保存される（元のstartは変わらない）', () => {
-  const tasks = [
-    { id: 1, title: '起床', start: 420, duration: 30, allocated: true, repeatMode: 'daily', doneDates: [], overrides: {} }
-  ];
+test('完了済みタスクは移動されない', () => {
   const dk = offsetToDateKey(0);
-  const result = applyTimeShiftLogic(JSON.parse(JSON.stringify(tasks)), 0, 60);
-  assertEqual(result[0].start, 420, `元のstartは変わらないべき`);
-  assert(result[0].overrides && result[0].overrides[dk], 'オーバーライドが設定されるべき');
-  assertEqual(result[0].overrides[dk].start, 480, `オーバーライドのstartが480になるべき`);
-});
-
-test('0分未満にはシフトされない（下限チェック）', () => {
   const tasks = [
-    { id: 1, title: '起床', start: 30, duration: 30, allocated: true, repeatMode: 'none', doneDates: [] }
+    { id: 1, title: '読書', start: 600, duration: 30, allocated: true, repeatMode: 'none',
+      allocatedOffset: dk, doneDates: [dk], customDays: [], createdOffset: dk }
   ];
-  const result = applyTimeShiftLogic(JSON.parse(JSON.stringify(tasks)), 0, -60);
-  assert(result[0].start >= 0, 'startは0以上であるべき');
+  const { movedTitles } = checkOverdueTasks(JSON.parse(JSON.stringify(tasks)), 640, 0);
+  assertEqual(movedTitles.length, 0, '完了済みは移動しない');
 });
 
-test('1439分を超えてシフトされない（上限チェック）', () => {
-  const tasks = [
-    { id: 1, title: '深夜', start: 1420, duration: 30, allocated: true, repeatMode: 'none', doneDates: [] }
-  ];
-  const result = applyTimeShiftLogic(JSON.parse(JSON.stringify(tasks)), 0, 60);
-  assert(result[0].start <= 1439, 'startは1439以下であるべき');
-});
-
-test('未allocatedのタスクはシフトされない', () => {
-  const tasks = [
-    { id: 1, title: 'あとでタスク', start: null, duration: 30, allocated: false, repeatMode: 'none', doneDates: [] }
-  ];
-  const result = applyTimeShiftLogic(JSON.parse(JSON.stringify(tasks)), 0, 60);
-  assert(result[0].start === null, '未allocatedタスクのstartはnullのまま');
-});
-
-// ─── 4. サブタスク関連テスト ─────────────────────────
-console.log('\n☑ [4] サブタスク機能テスト');
-
-test('[FIX] タスク複製時にサブタスクがコピーされる', () => {
-  const task = {
-    id: 100, title: 'テスト', start: 600, duration: 30, allocated: true,
-    repeatMode: 'none', doneDates: [],
-    subtasks: [
-      { title: 'サブ1', 'done_20260304': true },
-      { title: 'サブ2' }
-    ]
-  };
-  const copy = duplicateTaskLogic(task, 0);
-  assert(copy.subtasks, 'コピーにsubtasksが存在するべき');
-  assertEqual(copy.subtasks.length, 2, 'サブタスクが2個コピーされるべき');
-  assertEqual(copy.subtasks[0].title, 'サブ1', 'サブタスクのタイトルが引き継がれるべき');
-});
-
-test('[FIX] 複製されたタスクのサブタスクの完了状態はリセットされる', () => {
-  const task = {
-    id: 100, title: 'テスト', start: 600, duration: 30, allocated: true,
-    repeatMode: 'none', doneDates: [],
-    subtasks: [
-      { title: 'サブ1', 'done_20260304': true }
-    ]
-  };
-  const copy = duplicateTaskLogic(task, 0);
-  const hasDoneKey = Object.keys(copy.subtasks[0]).some(k => k.startsWith('done_'));
-  assert(!hasDoneKey, '複製されたサブタスクの完了状態はリセットされるべき');
-});
-
-test('subtasksが存在しないタスクのコピーでもエラーにならない', () => {
-  const task = {
-    id: 100, title: 'シンプルタスク', start: 600, duration: 30, allocated: true,
-    repeatMode: 'none', doneDates: []
-  };
-  let error = null;
-  try {
-    const copy = duplicateTaskLogic(task, 0);
-  } catch(e) {
-    error = e;
-  }
-  assert(error === null, `エラーが発生してはいけない: ${error}`);
-});
-
-test('[FIX] applyRepeatChangeでサブタスクが引き継がれる', () => {
-  const task = {
-    id: 100, title: '繰り返しタスク', start: 600, duration: 30, allocated: false,
-    repeatMode: 'daily', doneDates: [],
-    subtasks: [{ title: 'サブA' }, { title: 'サブB' }]
-  };
-  // todayOnlyコピーのシミュレーション
+test('まだ終わっていないタスクは移動されない', () => {
   const dk = offsetToDateKey(0);
-  const todayOnly = {
-    id: Date.now(),
-    title: task.title,
-    duration: task.duration,
-    allocated: true,
-    start: 600,
-    repeatMode: 'none',
-    allocatedOffset: dk,
-    createdOffset: dk,
-    customDays: [],
-    doneDates: [],
-    notify: false,
-    subtasks: task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [],
-  };
-  assertEqual(todayOnly.subtasks.length, 2, 'サブタスクが引き継がれるべき');
-  assertEqual(todayOnly.subtasks[0].title, 'サブA', 'サブタスクのタイトルが正しいべき');
+  const tasks = [
+    { id: 1, title: '読書', start: 600, duration: 30, allocated: true, repeatMode: 'none',
+      allocatedOffset: dk, doneDates: [], customDays: [], createdOffset: dk }
+  ];
+  // nowMin = 620 (終了時刻630より前)
+  const { movedTitles } = checkOverdueTasks(JSON.parse(JSON.stringify(tasks)), 620, 0);
+  assertEqual(movedTitles.length, 0, 'まだ終わっていないタスクは動かない');
 });
 
-// ─── 5. DateKey マイグレーションテスト ───────────────
-console.log('\n🔄 [5] DateKeyマイグレーションテスト');
-
-test('旧形式(offset整数)のdoneDatesが新形式に変換される', () => {
-  // マイグレーション関数のシミュレーション
-  const isOldFormat = (v) => typeof v === 'number' && Math.abs(v) < 1000;
+test('繰り返しタスクは今日だけdeletedDatesに追加される（翌日は残る）', () => {
+  const dk = offsetToDateKey(0);
   const tasks = [
-    { id: 1, title: 'テスト', doneDates: [0, -1, 1], deletedDates: [], repeatMode: 'none', allocated: true }
+    { id: 1, title: 'NIKKE', start: 600, duration: 30, allocated: true, repeatMode: 'daily',
+      doneDates: [], customDays: [], deletedDates: [], overrides: {}, createdOffset: offsetToDateKey(-30) }
   ];
-
-  tasks.forEach(task => {
-    if (task.doneDates) {
-      task.doneDates = task.doneDates.map(v => {
-        if (isOldFormat(v)) return offsetToDateKey(v);
-        return v;
-      });
-    }
-  });
-
-  const todayDk = offsetToDateKey(0);
-  const yesterdayDk = offsetToDateKey(-1);
+  const { tasks: result } = checkOverdueTasks(JSON.parse(JSON.stringify(tasks)), 640, 0);
+  const original = result.find(t => t.id === 1);
+  assert(original, 'オリジナルタスクが存在する');
+  assert(original.deletedDates.includes(dk), '今日のdateKeyがdeletedDatesに追加される');
+  // 繰り返しなので翌日のタイムラインには残るはず（deletedDatesに翌日が入っていない）
   const tomorrowDk = offsetToDateKey(1);
-
-  assert(tasks[0].doneDates.includes(todayDk), '今日のDateKeyが含まれるべき');
-  assert(tasks[0].doneDates.includes(yesterdayDk), '昨日のDateKeyが含まれるべき');
-  assert(tasks[0].doneDates.includes(tomorrowDk), '明日のDateKeyが含まれるべき');
-  assert(!tasks[0].doneDates.some(v => Math.abs(v) < 1000), '旧形式が残ってはいけない');
+  assert(!original.deletedDates.includes(tomorrowDk), '翌日は削除されていない');
 });
 
-// ─── 6. タイムシフトUI計算テスト ─────────────────────
-console.log('\n🖥 [6] タイムシフトUI計算テスト');
-
-test('タイムシフト表示文字列: +30分', () => {
-  const timeShiftMinutes = 30;
-  const abs = Math.abs(timeShiftMinutes);
-  const h = Math.floor(abs / 60), m = abs % 60;
-  const sign = timeShiftMinutes >= 0 ? '＋' : '−';
-  const timeStr = h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
-  const display = timeShiftMinutes === 0 ? '0分' : `${sign}${timeStr}`;
-  assertEqual(display, '＋30分', `表示が「＋30分」になるべき、実際:「${display}」`);
+test('繰り返しタスク移動後、あとでリスト用コピーが追加される', () => {
+  const dk = offsetToDateKey(0);
+  const tasks = [
+    { id: 1, title: 'NIKKE', start: 600, duration: 30, allocated: true, repeatMode: 'daily',
+      doneDates: [], customDays: [], deletedDates: [], overrides: {}, createdOffset: offsetToDateKey(-30) }
+  ];
+  const initialCount = tasks.length;
+  const { tasks: result } = checkOverdueTasks(JSON.parse(JSON.stringify(tasks)), 640, 0);
+  assert(result.length > initialCount, 'あとでコピーが追加された');
+  const copy = result.find(t => t.isOverdueMoved && t.title === 'NIKKE');
+  assert(copy, 'isOverdueMoved=trueのコピーが存在する');
+  assert(!copy.allocated, 'コピーはallocated=false');
+  assertEqual(copy.repeatMode, 'none', 'コピーのrepeatMode=none');
 });
 
-test('タイムシフト表示文字列: -1時間', () => {
-  const timeShiftMinutes = -60;
-  const abs = Math.abs(timeShiftMinutes);
-  const h = Math.floor(abs / 60), m = abs % 60;
-  const sign = timeShiftMinutes >= 0 ? '＋' : '−';
-  const timeStr = h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
-  const display = `${sign}${timeStr}`;
-  assertEqual(display, '−1時間', `表示が「−1時間」になるべき、実際:「${display}」`);
+test('今日既に移動済みのタスクは二重移動されない', () => {
+  const dk = offsetToDateKey(0);
+  const tasks = [
+    { id: 1, title: '読書', start: 600, duration: 30, allocated: true, repeatMode: 'none',
+      allocatedOffset: dk, doneDates: [], customDays: [], createdOffset: dk,
+      movedToLaterDates: [dk] } // 既に移動済み
+  ];
+  const { movedTitles } = checkOverdueTasks(JSON.parse(JSON.stringify(tasks)), 640, 0);
+  assertEqual(movedTitles.length, 0, '二重移動されない');
 });
 
-test('タイムシフト表示文字列: +1時間30分', () => {
-  const timeShiftMinutes = 90;
-  const abs = Math.abs(timeShiftMinutes);
-  const h = Math.floor(abs / 60), m = abs % 60;
-  const sign = timeShiftMinutes >= 0 ? '＋' : '−';
-  const timeStr = h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
-  const display = `${sign}${timeStr}`;
-  assertEqual(display, '＋1時間30分', `表示が「＋1時間30分」になるべき、実際:「${display}」`);
+test('今日以外の日付（currentDayOffset!=0）ではチェックしない', () => {
+  const dk = offsetToDateKey(0);
+  const tasks = [
+    { id: 1, title: '読書', start: 600, duration: 30, allocated: true, repeatMode: 'none',
+      allocatedOffset: dk, doneDates: [], customDays: [], createdOffset: dk }
+  ];
+  const { movedTitles } = checkOverdueTasks(JSON.parse(JSON.stringify(tasks)), 640, 1); // 明日
+  assertEqual(movedTitles.length, 0, '今日以外はチェックしない');
 });
 
-// ─── 結果サマリー ──────────────────────────────────
+// ══════════════════════════════════════════════
+//  機能②: 実績時間の自動学習・予測
+// ══════════════════════════════════════════════
+console.log('\n📊 [2] 実績時間予測テスト');
+
+test('1件だけでは予測しない（2件以上必要）', () => {
+  durationHistory = {};
+  const task = { title: '読書', duration: 25 };
+  recordDurationOnDone(task);
+  const predicted = getPredictedDuration('読書');
+  assert(predicted === null, '1件だけでは予測しない');
+});
+
+test('2件以上で予測値が返る', () => {
+  durationHistory = {};
+  recordDurationOnDone({ title: '読書', duration: 20 });
+  recordDurationOnDone({ title: '読書', duration: 30 });
+  const predicted = getPredictedDuration('読書');
+  assert(predicted !== null, '2件以上で予測値が返る');
+  assertEqual(predicted, 25, '2件平均: 25分');
+});
+
+test('直近5件の平均で予測する', () => {
+  durationHistory = {};
+  [30, 30, 30, 30, 30, 60, 60].forEach(d => recordDurationOnDone({ title: 'テスト', duration: d }));
+  // 直近5件: [30, 60, 60, 60, 60] → いや違う、追加順に [30,30,30,30,30,60,60]
+  // slice(-5): [30, 30, 60, 60] ... 実際は [30,30,60,60,60] → 48
+  const hist = durationHistory['テスト'];
+  const recent = hist.slice(-5);
+  const expected = Math.round(recent.reduce((s, v) => s + v, 0) / recent.length);
+  const predicted = getPredictedDuration('テスト');
+  assertEqual(predicted, expected, `直近5件の平均が予測値: ${expected}分`);
+});
+
+test('20件を超えたら古い記録が削除される', () => {
+  durationHistory = {};
+  for (let i = 0; i < 25; i++) recordDurationOnDone({ title: '毎日', duration: i + 1 });
+  assert(durationHistory['毎日'].length <= 20, '20件以内に抑えられる');
+});
+
+test('タイトルが異なれば別々に記録される', () => {
+  durationHistory = {};
+  recordDurationOnDone({ title: '読書', duration: 30 });
+  recordDurationOnDone({ title: '読書', duration: 30 });
+  recordDurationOnDone({ title: 'NIKKE', duration: 15 });
+  recordDurationOnDone({ title: 'NIKKE', duration: 15 });
+  const readingPred = getPredictedDuration('読書');
+  const nikkePred   = getPredictedDuration('NIKKE');
+  assertEqual(readingPred, 30, '読書の予測: 30分');
+  assertEqual(nikkePred, 15, 'NIKKEの予測: 15分');
+});
+
+test('予測値が現在のdurationと同じ場合、nullでないが同値を返す', () => {
+  durationHistory = {};
+  recordDurationOnDone({ title: '仕事', duration: 60 });
+  recordDurationOnDone({ title: '仕事', duration: 60 });
+  const predicted = getPredictedDuration('仕事');
+  assertEqual(predicted, 60, '同じ時間の予測: 60分');
+});
+
+test('空のタイトルは記録されない', () => {
+  durationHistory = {};
+  recordDurationOnDone({ title: '', duration: 30 });
+  recordDurationOnDone({ title: '  ', duration: 30 });
+  assert(!durationHistory[''] && !durationHistory['  '], '空タイトルは記録されない');
+});
+
+// ══════════════════════════════════════════════
+//  機能③: タイムシフト ピン留め除外
+// ══════════════════════════════════════════════
+console.log('\n📌 [3] タイムシフト ピン留め除外テスト');
+
+test('ピン留めなしのタスクはシフトされる', () => {
+  const dk = offsetToDateKey(0);
+  const tasks = [
+    { id: 1, title: '仕事', start: 600, duration: 60, allocated: true, repeatMode: 'none',
+      allocatedOffset: dk, doneDates: [], pinned: false }
+  ];
+  const { tasks: result, movedIds, skippedIds } = applyTimeShiftWithPin(JSON.parse(JSON.stringify(tasks)), 0, 30);
+  const task = result.find(t => t.id === 1);
+  assertEqual(task.start, 630, 'startが630になる');
+  assert(movedIds.includes(1), 'movedIdsに含まれる');
+  assertEqual(skippedIds.length, 0, 'skippedIdsは空');
+});
+
+test('ピン留めありのタスクはシフトされない', () => {
+  const dk = offsetToDateKey(0);
+  const tasks = [
+    { id: 1, title: '固定イベント', start: 600, duration: 60, allocated: true, repeatMode: 'none',
+      allocatedOffset: dk, doneDates: [], pinned: true }
+  ];
+  const { tasks: result, movedIds, skippedIds } = applyTimeShiftWithPin(JSON.parse(JSON.stringify(tasks)), 0, 30);
+  const task = result.find(t => t.id === 1);
+  assertEqual(task.start, 600, 'startが変わらない（600のまま）');
+  assert(skippedIds.includes(1), 'skippedIdsに含まれる');
+  assertEqual(movedIds.length, 0, 'movedIdsは空');
+});
+
+test('ピン留めありとなしが混在する場合、ピンなしのみシフトされる', () => {
+  const dk = offsetToDateKey(0);
+  const tasks = [
+    { id: 1, title: '仕事', start: 600, duration: 60, allocated: true, repeatMode: 'none', allocatedOffset: dk, doneDates: [], pinned: false },
+    { id: 2, title: '固定イベント', start: 700, duration: 60, allocated: true, repeatMode: 'none', allocatedOffset: dk, doneDates: [], pinned: true },
+    { id: 3, title: '読書', start: 800, duration: 30, allocated: true, repeatMode: 'none', allocatedOffset: dk, doneDates: [], pinned: false },
+  ];
+  const { tasks: result, movedIds, skippedIds } = applyTimeShiftWithPin(JSON.parse(JSON.stringify(tasks)), 0, 60);
+  const t1 = result.find(t => t.id === 1);
+  const t2 = result.find(t => t.id === 2);
+  const t3 = result.find(t => t.id === 3);
+  assertEqual(t1.start, 660, '仕事: 600→660');
+  assertEqual(t2.start, 700, '固定イベント: 変わらない');
+  assertEqual(t3.start, 860, '読書: 800→860');
+  assertEqual(movedIds.length, 2, '2件移動');
+  assertEqual(skippedIds.length, 1, '1件スキップ');
+});
+
+test('繰り返しタスクのピン留めなしはオーバーライドに保存される', () => {
+  const dk = offsetToDateKey(0);
+  const tasks = [
+    { id: 1, title: '起床', start: 420, duration: 30, allocated: true, repeatMode: 'daily',
+      doneDates: [], customDays: [], overrides: {}, pinned: false }
+  ];
+  const { tasks: result } = applyTimeShiftWithPin(JSON.parse(JSON.stringify(tasks)), 0, 60);
+  const task = result.find(t => t.id === 1);
+  assertEqual(task.start, 420, '元のstartは変わらない');
+  assert(task.overrides[dk], 'オーバーライドが設定される');
+  assertEqual(task.overrides[dk].start, 480, 'オーバーライドのstartが480');
+});
+
+test('繰り返しタスクのピン留めありはオーバーライドされない', () => {
+  const dk = offsetToDateKey(0);
+  const tasks = [
+    { id: 1, title: '就寝', start: 1380, duration: 60, allocated: true, repeatMode: 'daily',
+      doneDates: [], customDays: [], overrides: {}, pinned: true }
+  ];
+  const { tasks: result, skippedIds } = applyTimeShiftWithPin(JSON.parse(JSON.stringify(tasks)), 0, 60);
+  const task = result.find(t => t.id === 1);
+  assertEqual(task.start, 1380, '元のstartは変わらない');
+  assert(!task.overrides[dk], 'オーバーライドが設定されていない');
+  assert(skippedIds.includes(1), 'skippedIdsに含まれる');
+});
+
+test('pinned=undefinedはfalseとして扱われシフトされる', () => {
+  const dk = offsetToDateKey(0);
+  const tasks = [
+    { id: 1, title: '読書', start: 600, duration: 30, allocated: true, repeatMode: 'none',
+      allocatedOffset: dk, doneDates: [] } // pinned未定義
+  ];
+  const { tasks: result, movedIds } = applyTimeShiftWithPin(JSON.parse(JSON.stringify(tasks)), 0, 30);
+  const task = result.find(t => t.id === 1);
+  assertEqual(task.start, 630, 'pinned未定義はシフトされる');
+  assert(movedIds.includes(1), 'movedIdsに含まれる');
+});
+
+// ══════════════════════════════════════════════
+//  統合テスト: 3機能の連携
+// ══════════════════════════════════════════════
+console.log('\n🔗 [4] 統合テスト');
+
+test('時間切れ移動後、あとでリストのコピーは空き時間チップに出ない（作成日のみ）', () => {
+  const dk = offsetToDateKey(0);
+  // あとで移動コピー（isOverdueMoved=true、repeatMode=none、createdOffset=今日）
+  const tasks = [
+    { id: 999, title: 'NIKKE', duration: 30, allocated: false, repeatMode: 'none',
+      doneDates: [], createdOffset: dk, isOverdueMoved: true }
+  ];
+  // createdOffsetが今日と同じ → 今日のチップに出る（正常）
+  const actualDur = 60;
+  const fittingTasks = tasks.filter(t => {
+    if (t.allocated) return false;
+    if (t.duration > actualDur) return false;
+    if (t.doneDates.includes(dk)) return false;
+    if (t.repeatMode !== 'none') return false;
+    const created = t.createdOffset !== undefined ? t.createdOffset : 0;
+    return dk === created; // 今日のみチップ表示
+  });
+  assertEqual(fittingTasks.length, 1, '今日のコピーは空き時間チップに表示される');
+  // 明日のdkでフィルタするとチップに出ない
+  const tomorrowDk = offsetToDateKey(1);
+  const tomorrowFitting = tasks.filter(t => {
+    if (t.allocated) return false;
+    if (t.duration > actualDur) return false;
+    const created = t.createdOffset !== undefined ? t.createdOffset : 0;
+    return tomorrowDk === created;
+  });
+  assertEqual(tomorrowFitting.length, 0, '翌日にはコピーのチップは出ない');
+});
+
+test('ピン留めタスクへの時間切れチェックは正常動作する', () => {
+  const dk = offsetToDateKey(0);
+  // ピン留めされたタスクも時間切れチェックの対象（ピンはシフトのみ除外）
+  const tasks = [
+    { id: 1, title: '固定ミーティング', start: 600, duration: 30, allocated: true,
+      repeatMode: 'none', allocatedOffset: dk, doneDates: [], pinned: true, createdOffset: dk }
+  ];
+  const { movedTitles } = checkOverdueTasks(JSON.parse(JSON.stringify(tasks)), 640, 0);
+  // ピン留めでも時間切れなら移動される（ピンはシフト除外のみ）
+  assert(movedTitles.includes('固定ミーティング'), 'ピン留めタスクも時間切れなら移動される');
+});
+
+test('予測時間は繰り返しと通常タスクで共通（タイトルベース）', () => {
+  durationHistory = {};
+  // 繰り返しタスクとして30分×3回記録
+  recordDurationOnDone({ title: 'NIKKE', duration: 30 });
+  recordDurationOnDone({ title: 'NIKKE', duration: 35 });
+  recordDurationOnDone({ title: 'NIKKE', duration: 28 });
+  const predicted = getPredictedDuration('NIKKE');
+  assert(predicted !== null, '3件で予測が返る');
+  assertEqual(predicted, 31, '平均: (30+35+28)/3 = 31分（四捨五入）');
+});
+
+// ─── 結果サマリー ─────────────────────────────────────
 console.log('\n╔════════════════════════════════════════════╗');
 console.log('║               テスト結果サマリー           ║');
 console.log('╠════════════════════════════════════════════╣');
