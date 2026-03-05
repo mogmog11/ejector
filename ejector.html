@@ -33,6 +33,9 @@
   --blue-dim:  rgba(52,73,94,0.1);
   --red:       #c0392b;
   --orange:    #e67e22;
+  --orange-dim:rgba(230,126,34,0.12);
+  --purple:    #8e44ad;
+  --purple-dim:rgba(142,68,173,0.12);
   --now-line:  #3e352a;
   --font-main: 'M PLUS Rounded 1c', sans-serif;
   --header-h: 60px;
@@ -146,11 +149,26 @@ header {
 }
 .block.special { border-left-color: var(--blue); background: #f0f4f8; }
 .block.completed { opacity: 0.5; filter: grayscale(0.5); }
+
+/* ── 固定タスク（タイムシフト除外）スタイル ── */
+.block.pinned { border-left-color: var(--purple); }
+.block.pinned::after {
+  content: '📌';
+  position: absolute; top: 6px; right: 30px;
+  font-size: 11px; opacity: 0.7;
+}
+
+/* ── 時間切れタスク（自動あとで移動後）スタイル ── */
+.block.overdue-moved {
+  border-left-color: var(--orange);
+  opacity: 0.65;
+}
+
 .task-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--green); margin-top: 2px; flex-shrink: 0; }
 
 /* ─── INLINE SUBTASKS IN TIMELINE ─── */
 .block-subtasks {
-  display: none; /* toggleで表示 */
+  display: none;
   flex-direction: column; gap: 4px;
   padding: 6px 0 2px 28px;
   border-top: 1px solid var(--border);
@@ -224,6 +242,11 @@ header {
 .later-repeat-badge {
   font-size: 10px; font-weight: 700; color: var(--green);
   background: var(--green-dim); border-radius: 10px; padding: 2px 7px;
+}
+/* あとで移動バッジ */
+.later-moved-badge {
+  font-size: 10px; font-weight: 700; color: var(--orange);
+  background: var(--orange-dim); border-radius: 10px; padding: 2px 7px;
 }
 
 /* ─── OVERLAYS ─── */
@@ -408,6 +431,13 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   display: flex; align-items: center; gap: 10px; cursor: grab;
 }
 .later-card.completed { opacity: 0.5; filter: grayscale(0.5); }
+
+/* ─── 予測時間バッジ ─── */
+.predicted-badge {
+  font-size: 10px; font-weight: 700; color: var(--purple);
+  background: var(--purple-dim); border-radius: 10px; padding: 2px 7px;
+  white-space: nowrap;
+}
 
 /* ─── MEDIA QUERIES ─── */
 @media (max-width: 768px) {
@@ -603,7 +633,7 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
     <p class="modal-title">⏩ タイムシフト</p>
     <p style="font-size:13px; color:var(--ink2); margin:0 0 16px; line-height:1.7;">
       今日のタイムラインにある全タスクを一括で時間移動します。<br>
-      <span style="color:var(--orange); font-weight:700;">寝坊・残業・予定変更</span>のときに便利です。
+      <span style="color:var(--purple); font-weight:700;">📌 固定マークのタスクは移動されません。</span>
     </p>
 
     <div id="timeShiftPreview" class="timeshift-display">0分</div>
@@ -624,7 +654,7 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 
     <div style="font-size:11px; color:var(--ink3); margin-top:8px; padding:8px; background:var(--bg2); border-radius:8px;">
       ※ 繰り返しタスクは「今日のみ」のオーバーライドとして保存されます。<br>
-      ※ 起床・就寝タスクも含めて移動します。
+      ※ 📌 固定タスクはシフト対象外です。編集モーダルでピン留めを設定できます。
     </div>
 
     <div style="display:flex; gap:10px; margin-top:16px;">
@@ -653,6 +683,8 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
     <div class="input-group">
       <label>所要時間 (分)</label>
       <input type="number" id="editDur" class="input-field">
+      <!-- 予測時間のヒント -->
+      <div id="predictedHint" style="display:none; margin-top:6px; padding:8px 10px; background:var(--purple-dim); border-radius:8px; font-size:12px; color:var(--purple); font-weight:700;"></div>
     </div>
     <div class="input-group">
       <label>繰り返し設定</label>
@@ -676,6 +708,18 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
         <label><input type="checkbox" value="0">日</label>
       </div>
     </div>
+
+    <!-- ── NEW: ピン留め（タイムシフト除外） ── -->
+    <div class="input-group" id="editPinBox">
+      <label style="display:flex; align-items:center; gap:10px; background:white; border:1px solid var(--border); border-radius:10px; padding:12px; cursor:pointer;">
+        <input type="checkbox" id="editPinned" style="width:20px;height:20px;accent-color:var(--purple);flex-shrink:0;">
+        <div>
+          <div style="font-size:13px; font-weight:700;">📌 タイムシフトから除外する</div>
+          <div style="font-size:11px; color:var(--ink3); margin-top:2px;">チェックするとタイムシフト時に動きません</div>
+        </div>
+      </label>
+    </div>
+
     <div id="editNotifyBox" class="input-group"><label>通知</label><label style="display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;"><input type="checkbox" id="editNotify" style="width:20px;height:20px;accent-color:var(--green);flex-shrink:0;" onchange="handleNotifyToggle(this.checked)"><span style="font-size:13px;">🔔 開始時刻に通知する</span></label><div id="notifyPermissionMsg" style="display:none;font-size:11px;color:var(--red);margin-top:6px;padding:8px;background:#fff0f0;border-radius:8px;">通知が許可されていません。ブラウザの設定から通知を許可してください。</div></div>
 
     <!-- サブタスク -->
@@ -904,6 +948,121 @@ function loadFromLocal() {
 }
 
 // ══════════════════════════════════════════════
+//  ① 時間切れタスク → 今日だけ「あとで」に自動移動
+//
+//  ルール:
+//  - 今日のタイムライン上のタスク（allocated=true）
+//  - 未完了（doneDates に今日が含まれない）
+//  - 終了時刻（start + duration）が現在時刻を超過
+//  - repeatMode='none' → allocatedをfalseにする（翌日以降は普通に表示）
+//  - repeatMode!=none  → deletedDates[今日] を追加（翌日はタイムラインに残る）
+//  - 一度処理したタスクは movedToLaterDates に記録し二重処理しない
+// ══════════════════════════════════════════════
+function checkOverdueTasks() {
+  if (currentDayOffset !== 0) return; // 今日のみチェック
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const dk = offsetToDateKey(0);
+  let anyMoved = false;
+
+  state.tasks.forEach(task => {
+    if (!task.allocated) return;
+    if (task.repeatMode === 'none' && task.allocatedOffset !== dk) return; // 今日以外のタスク
+    if (!isTaskForToday(task, 0)) return;
+
+    const taskStart = getTaskStart(task, 0);
+    const taskEnd   = taskStart + task.duration;
+    const isDone    = task.doneDates.includes(dk);
+
+    if (isDone) return; // 完了済みはスキップ
+    if (taskEnd > nowMin) return; // まだ終わっていない
+
+    // 既にあとで移動済みか確認
+    if (!task.movedToLaterDates) task.movedToLaterDates = [];
+    if (task.movedToLaterDates.includes(dk)) return; // 今日は既に処理済み
+
+    // 移動処理
+    task.movedToLaterDates.push(dk);
+    anyMoved = true;
+
+    if (task.repeatMode !== 'none') {
+      // 繰り返しタスク: 今日だけ削除（翌日はタイムラインに残る）
+      if (!task.deletedDates) task.deletedDates = [];
+      task.deletedDates.push(dk);
+      // あとでリスト表示用に「今日移動した」フラグ
+      if (!task.movedToLaterTodayDate) task.movedToLaterTodayDate = [];
+      // 別タスクとして今日のあとでリストに追加
+      const laterCopy = {
+        id: Date.now() + Math.random(),
+        title: task.title,
+        duration: task.duration,
+        allocated: false,
+        repeatMode: 'none',
+        customDays: [],
+        doneDates: [],
+        createdOffset: dk,
+        subtasks: task.subtasks ? JSON.parse(JSON.stringify(task.subtasks.map(s => ({ title: s.title })))) : [],
+        isOverdueMoved: true, // あとでリストで識別するフラグ
+      };
+      state.tasks.push(laterCopy);
+    } else {
+      // 通常タスク: あとでリストに戻す（allocated=false）
+      task.allocated = false;
+      task.start = null;
+    }
+  });
+
+  if (anyMoved) {
+    saveToLocal();
+    renderAll();
+  }
+}
+
+// ══════════════════════════════════════════════
+//  ② 実績時間の自動学習 → 所要時間予測
+//
+//  仕組み:
+//  - doneDates に追加されるたびに durationHistory[タイトル] へ duration を記録
+//  - 予測は直近5件の平均（外れ値を少し抑えるため中央値寄り）
+//  - 記録は localStorage の 'ejector_duration_history' に保存
+//  - openEdit() 時に予測値をヒントとして表示するだけ（ボタン操作不要）
+// ══════════════════════════════════════════════
+let durationHistory = {};
+
+function loadDurationHistory() {
+  try {
+    const s = localStorage.getItem('ejector_duration_history');
+    if (s) durationHistory = JSON.parse(s);
+  } catch(e) {}
+}
+
+function saveDurationHistory() {
+  localStorage.setItem('ejector_duration_history', JSON.stringify(durationHistory));
+}
+
+function recordDurationOnDone(task) {
+  // タスクが完了された時点での duration を記録
+  const key = task.title.trim();
+  if (!key) return;
+  if (!durationHistory[key]) durationHistory[key] = [];
+  durationHistory[key].push(task.duration);
+  // 直近20件だけ保持
+  if (durationHistory[key].length > 20) {
+    durationHistory[key] = durationHistory[key].slice(-20);
+  }
+  saveDurationHistory();
+}
+
+function getPredictedDuration(title) {
+  const key = title.trim();
+  const hist = durationHistory[key];
+  if (!hist || hist.length < 2) return null; // 2件以上ないと予測しない
+  // 直近5件の平均
+  const recent = hist.slice(-5);
+  const avg = Math.round(recent.reduce((s, v) => s + v, 0) / recent.length);
+  return avg;
+}
+
+// ══════════════════════════════════════════════
 //  Cloudflare Workers KV 同期
 // ══════════════════════════════════════════════
 let syncCfg = { workerUrl: '', secret: '' };
@@ -1036,7 +1195,7 @@ function disconnectSync() {
 }
 
 // ══════════════════════════════════════════════
-//  ⏩ タイムシフト機能
+//  ③ タイムシフト機能（ピン留め対応）
 // ══════════════════════════════════════════════
 let timeShiftMinutes = 0;
 
@@ -1079,20 +1238,23 @@ function applyTimeShift() {
   if (timeShiftMinutes === 0) { closeTimeShift(); return; }
 
   const dk = offsetToDateKey(currentDayOffset);
-  const dayTasks = state.tasks.filter(t => isTaskForToday(t, currentDayOffset));
+  // ③ ピン留めされたタスクを除外
+  const dayTasks = state.tasks.filter(t =>
+    isTaskForToday(t, currentDayOffset) && !t.pinned
+  );
 
+  let movedCount = 0;
   dayTasks.forEach(task => {
     const currentStart = getTaskStart(task, currentDayOffset);
     const newStart = Math.max(0, Math.min(1439, currentStart + timeShiftMinutes));
 
     if (task.repeatMode !== 'none') {
-      // 繰り返しタスク → 今日のみオーバーライド
       if (!task.overrides) task.overrides = {};
       task.overrides[dk] = { start: newStart };
     } else {
-      // 通常タスク → 直接更新
       task.start = newStart;
     }
+    movedCount++;
   });
 
   closeTimeShift();
@@ -1103,7 +1265,9 @@ function applyTimeShift() {
   const h = Math.floor(abs / 60), m = abs % 60;
   const sign = timeShiftMinutes >= 0 ? '+' : '-';
   const timeStr = h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
-  showToast(`${sign}${timeStr} ずらしました`);
+  const pinnedCount = state.tasks.filter(t => isTaskForToday(t, currentDayOffset) && t.pinned).length;
+  const pinnedMsg = pinnedCount > 0 ? `（📌 ${pinnedCount}件は固定）` : '';
+  showToast(`${sign}${timeStr} ずらしました${pinnedMsg}`);
 }
 
 // ══════════════════════════════════════════════
@@ -1319,7 +1483,6 @@ function appendGapRow(tl, startMin, endMin, showChips) {
     if (t.doneDates.includes(dk)) return false;
     if (t.deletedDates && t.deletedDates.includes(dk)) return false;
     if (t.repeatMode !== 'none') {
-      // 繰り返しタスク: 該当曜日のみチップ表示
       if (!isRepeatMatchDay(t, currentDayOffset)) return false;
       const hasTodayCopy = state.tasks.some(other =>
         other.repeatMode === 'none' &&
@@ -1330,8 +1493,6 @@ function appendGapRow(tl, startMin, endMin, showChips) {
       if (hasTodayCopy) return false;
       return true;
     }
-    // [FIX] repeatMode='none' のタスクは作成日（createdOffset）当日のみチップ表示
-    // 翌日以降はあとでリストには残るが、空き時間チップには出さない
     const created = t.createdOffset !== undefined ? t.createdOffset : 0;
     return dk === created;
   }) : [];
@@ -1415,6 +1576,7 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
     const dk = offsetToDateKey(currentDayOffset);
     const done      = origTask.doneDates.includes(dk);
     const isSpecial = origTask.title.includes('起床') || origTask.title.includes('就寝');
+    const isPinned  = !!origTask.pinned;
 
     const taskStart = task.start;
     const taskEnd   = task.start + origTask.duration;
@@ -1427,14 +1589,13 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
     const showProgress = isInProgress || isPassed;
 
     const el = document.createElement('div');
-    el.className = `block ${done?'completed':''} ${isSpecial?'special':''} ${showProgress?'in-progress':''}`;
+    el.className = `block ${done?'completed':''} ${isSpecial?'special':''} ${showProgress?'in-progress':''} ${isPinned?'pinned':''}`;
     if (showProgress) {
       el.style.setProperty('--progress', progress + '%');
     }
     el.draggable = !isSpecial;
     if (!isSpecial) el.ondragstart = e => e.dataTransfer.setData('taskId', origTask.id);
 
-    // サブタスクがある場合はユニークIDを付与
     const blockId = `block-${origTask.id}`;
     el.setAttribute('data-block-id', blockId);
 
@@ -1445,14 +1606,10 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
     const doneKey = `done_${dk}`;
     const subDoneCount = subs.filter(s => s[doneKey]).length;
 
-    // サブタスクの進捗テキスト（展開ボタン兼）
     const subProgressText = hasSubs
       ? `<button class="subtask-toggle-btn" onclick="event.stopPropagation();toggleInlineSubtasks('${blockId}')">▼ ${subDoneCount}/${subs.length}</button>`
       : '';
 
-    // ブロックタップの動作:
-    // サブタスクあり → サブタスク展開（✏️ボタンで編集）
-    // サブタスクなし → 編集モーダルを開く
     if (!isSpecial) {
       el.onclick = () => {
         if (hasSubs) {
@@ -1477,7 +1634,6 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
         <button style="font-size:16px;color:var(--ink3);padding:2px 6px;flex-shrink:0;border-radius:6px;" onclick="event.stopPropagation();openEdit(${origTask.id})" title="編集">✏️</button>
       </div>`;
 
-    // インラインサブタスクエリア
     if (hasSubs) {
       const subsDiv = document.createElement('div');
       subsDiv.className = 'block-subtasks';
@@ -1514,7 +1670,6 @@ function toggleInlineSubtasks(blockId) {
   if (subsDiv) subsDiv.classList.toggle('open');
 }
 
-// インラインサブタスクのチェックをトグル
 function toggleSubtaskInline(taskId, subtaskIndex, checked) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task || !task.subtasks) return;
@@ -1595,23 +1750,17 @@ function isRepeatMatchDay(task, offset) {
   return false;
 }
 
-// ══════════════════════════════════════════════
-//  [FIX] あとでリスト - 翌日も表示されるように修正
-// ══════════════════════════════════════════════
 function renderLaterList() {
   const dk = offsetToDateKey(currentDayOffset);
   const later = state.tasks.filter(t => {
     if (t.allocated) return false;
     if (t.deletedDates && t.deletedDates.includes(dk)) return false;
 
-    // 作成日より前の日付では非表示
     const created = t.createdOffset !== undefined ? t.createdOffset : 0;
     if (dk < created) return false;
 
     if (t.repeatMode !== 'none') {
-      // 繰り返しタスクはその日の繰り返し条件に合う場合のみ
       if (!isRepeatMatchDay(t, currentDayOffset)) return false;
-      // 今日のみコピーがタイムラインに存在する場合は非表示
       const hasTodayCopy = state.tasks.some(other =>
         other.repeatMode === 'none' &&
         other.allocated &&
@@ -1621,10 +1770,6 @@ function renderLaterList() {
       if (hasTodayCopy) return false;
       return true;
     }
-
-    // [FIX] repeatMode='none' の場合：
-    // 作成日以降はずっと表示（翌日以降も消えない）
-    // ※ dk >= created は上でチェック済みなのでここではtrueを返す
     return true;
   });
 
@@ -1643,7 +1788,10 @@ function renderLaterList() {
     const repeatBadge = isRepeat
       ? `<span class="later-repeat-badge">🔁 ${repeatLabel[t.repeatMode] || t.repeatMode}</span>`
       : '';
-    // サブタスク進捗バッジ
+    // あとで移動バッジ
+    const movedBadge = t.isOverdueMoved
+      ? `<span class="later-moved-badge">⏰ 時間切れ</span>`
+      : '';
     const subs = t.subtasks || [];
     const doneKey = `done_${dk}`;
     const subDoneCount = subs.filter(s => s[doneKey]).length;
@@ -1659,7 +1807,7 @@ function renderLaterList() {
         <div style="flex:1; min-width:0;">
           <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${t.title}</div>
           <div style="font-size:11px; color:var(--ink3); display:flex; gap:6px; align-items:center; margin-top:2px; flex-wrap:wrap;">
-            <span>${t.duration}分</span>${repeatBadge}${subBadge}
+            <span>${t.duration}分</span>${repeatBadge}${movedBadge}${subBadge}
           </div>
         </div>
         <div style="color:var(--border2); font-size:20px; flex-shrink:0;">⠿</div>
@@ -1667,7 +1815,6 @@ function renderLaterList() {
   }).join('') || '<div style="text-align:center; color:var(--ink4); padding:40px;">リストは空です</div>';
 }
 
-// 空き時間のタスクチップをタップ
 function openGapTaskEdit(taskId, gapStart) {
   const task = state.tasks.find(t => t.id === taskId);
   if (!task) return;
@@ -1682,12 +1829,29 @@ function openGapTaskEdit(taskId, gapStart) {
   document.getElementById('editTimeM').value = mv;
   document.getElementById('editTimeBox').style.display  = 'block';
   document.getElementById('moveLaterBtn').style.display = 'none';
-  // [FIX] openGapTaskEdit でもサブタスクを描画
+  document.getElementById('editPinBox').style.display   = 'block';
+  document.getElementById('editPinned').checked = !!task.pinned;
   document.getElementById('subtaskInput').value = '';
   renderSubtaskList(task);
   document.getElementById('editNotify').checked = !!task.notify;
   document.getElementById('notifyPermissionMsg').style.display = 'none';
+  // 予測時間ヒント表示
+  showPredictedHint(task.title, task.duration);
   document.getElementById('editOverlay').style.display  = 'flex';
+}
+
+// ══════════════════════════════════════════════
+//  予測時間ヒントの表示
+// ══════════════════════════════════════════════
+function showPredictedHint(title, currentDur) {
+  const predicted = getPredictedDuration(title);
+  const hintEl = document.getElementById('predictedHint');
+  if (predicted && predicted !== currentDur) {
+    hintEl.textContent = `💡 過去の実績から ${predicted}分 が目安です（現在: ${currentDur}分）`;
+    hintEl.style.display = 'block';
+  } else {
+    hintEl.style.display = 'none';
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -1762,8 +1926,13 @@ function toggleDone(id) {
   if (!task) return;
   const dk = offsetToDateKey(currentDayOffset);
   const idx = task.doneDates.indexOf(dk);
-  if (idx > -1) task.doneDates.splice(idx, 1);
-  else task.doneDates.push(dk);
+  if (idx > -1) {
+    task.doneDates.splice(idx, 1);
+  } else {
+    task.doneDates.push(dk);
+    // ② 完了時に実績時間を記録
+    recordDurationOnDone(task);
+  }
   saveState();
   renderAll();
 }
@@ -1805,16 +1974,20 @@ function openEdit(id) {
     document.getElementById('moveLaterBtn').style.display = 'block';
     document.getElementById('moveLaterBtn').textContent = task.repeatMode !== 'none' ? '「あとで」に移動' : '「あとで」に戻す';
     document.getElementById('editNotifyBox').style.display = 'block';
+    document.getElementById('editPinBox').style.display   = 'block';
   } else {
     document.getElementById('editTimeBox').style.display  = 'none';
     document.getElementById('moveLaterBtn').style.display = 'none';
     document.getElementById('editNotifyBox').style.display = 'none';
+    document.getElementById('editPinBox').style.display   = 'none';
   }
+  document.getElementById('editPinned').checked = !!task.pinned;
   document.getElementById('editNotify').checked = !!task.notify;
   document.getElementById('notifyPermissionMsg').style.display = 'none';
-  // [FIX] subtasksは常にtask.subtasksから描画（消失バグ防止）
   document.getElementById('subtaskInput').value = '';
   renderSubtaskList(task);
+  // ② 予測時間ヒント
+  showPredictedHint(task.title, task.duration);
   document.getElementById('editOverlay').style.display = 'flex';
 }
 
@@ -1845,7 +2018,8 @@ function applyRepeatChange(mode) {
         customDays: [],
         doneDates: [],
         notify: task.notify || false,
-        subtasks: task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [], // [FIX] サブタスクも引き継ぐ
+        pinned: task.pinned || false,
+        subtasks: task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [],
       };
       state.tasks.push(todayOnly);
     } else {
@@ -1881,6 +2055,9 @@ function saveEdit() {
   const mv = parseInt(document.getElementById('editTimeM').value) || 0;
   const newStart = hv * 60 + mv;
 
+  // ③ ピン留め状態を保存
+  task.pinned = document.getElementById('editPinned').checked;
+
   const isRepeat        = task.repeatMode !== 'none';
   const wasAllocated    = task.allocated;
   const timeChanged     = newStart !== (task.start || 0);
@@ -1914,7 +2091,6 @@ function saveEdit() {
   task.repeatMode = newRepeat;
   task.customDays = newCustom;
   task.notify     = document.getElementById('editNotify').checked;
-  // [FIX] subtasksは変更しない（renderSubtaskListで管理されている）
   if (task.allocated || task.repeatMode !== 'none') {
     task.allocated = true;
     if (task.repeatMode === 'none') {
@@ -2049,6 +2225,9 @@ function updateClock() {
   const min = now.getHours() * 60 + now.getMinutes();
   if (min !== _lastMinute) {
     _lastMinute = min;
+
+    // ① 毎分: 時間切れタスクチェック
+    checkOverdueTasks();
 
     document.querySelectorAll('.block.in-progress').forEach(el => {
       const pct = parseFloat(el.style.getPropertyValue('--progress')) || 0;
@@ -2296,7 +2475,6 @@ function duplicateTask(id) {
     if (copy.start != null) copy.start = (copy.start || 0) + copy.duration;
   }
   copy.createdOffset = offsetToDateKey(currentDayOffset);
-  // [FIX] サブタスクはコピーするが完了状態はリセット
   if (copy.subtasks) {
     copy.subtasks = copy.subtasks.map(s => ({ title: s.title }));
   }
@@ -2328,17 +2506,8 @@ function showToast(msg) {
 // ══════════════════════════════════════════════
 //  SUBTASK（編集モーダル用）
 // ══════════════════════════════════════════════
-function renderSubtaskProgress(task, offset) {
-  const subs = task.subtasks;
-  if (!subs || subs.length === 0) return '';
-  const doneKey = `done_${offsetToDateKey(offset)}`;
-  const doneCount = subs.filter(s => s[doneKey]).length;
-  return ` · <span style="color:var(--green);font-weight:700;">${doneCount}/${subs.length}</span>`;
-}
-
 function renderSubtaskList(task) {
   const container = document.getElementById('subtaskList');
-  // [FIX] taskが渡されていない場合はeditingTaskIdから取得
   if (!task) task = state.tasks.find(t => t.id === editingTaskId);
   if (!task) return;
   const subs = task.subtasks || [];
@@ -2498,6 +2667,7 @@ window.onload = async () => {
 
   loadFromLocal();
   migrateTaskDates();
+  loadDurationHistory(); // ② 実績時間履歴を読み込む
   loadSyncConfig();
 
   if (syncCfg.workerUrl) {
