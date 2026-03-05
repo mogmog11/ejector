@@ -78,14 +78,6 @@ header {
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: spin 1s linear infinite; }
 
-/* ─── TIMESHIFT BUTTON ─── */
-#timeShiftBtn {
-  font-size: 16px; width: 36px; height: 36px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--orange); border: 1px solid var(--border); background: var(--bg2);
-  transition: all 0.2s;
-}
-#timeShiftBtn:hover { background: rgba(230,126,34,0.1); border-color: var(--orange); }
 
 /* ─── TIMELINE ─── */
 #tlWrap { flex: 1; overflow-y: auto; position: relative; scroll-behavior: smooth; }
@@ -150,18 +142,19 @@ header {
 .block.special { border-left-color: var(--blue); background: #f0f4f8; }
 .block.completed { opacity: 0.5; filter: grayscale(0.5); }
 
-/* ── 固定タスク（タイムシフト除外）スタイル ── */
-.block.pinned { border-left-color: var(--purple); }
-.block.pinned::after {
-  content: '📌';
-  position: absolute; top: 6px; right: 30px;
-  font-size: 11px; opacity: 0.7;
-}
 
 /* ── 時間切れタスク（自動あとで移動後）スタイル ── */
 .block.overdue-moved {
   border-left-color: var(--orange);
   opacity: 0.65;
+}
+
+/* ── 予定タスク（あとで移動しない）スタイル ── */
+.block.scheduled { border-left-color: var(--blue); }
+.block.scheduled::after {
+  content: '📅';
+  position: absolute; top: 6px; right: 30px;
+  font-size: 11px; opacity: 0.7;
 }
 
 .task-checkbox { width: 20px; height: 20px; cursor: pointer; accent-color: var(--green); margin-top: 2px; flex-shrink: 0; }
@@ -263,23 +256,6 @@ header {
 }
 .modal-title { font-size: 17px; font-weight: 700; margin: 0 0 14px; }
 
-/* ─── TIMESHIFT MODAL ─── */
-.timeshift-btn {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 14px; border-radius: 12px; font-weight: 700; font-size: 14px;
-  border: 1.5px solid var(--border); background: white;
-  transition: all 0.15s; cursor: pointer;
-}
-.timeshift-btn:hover { border-color: var(--orange); color: var(--orange); background: rgba(230,126,34,0.05); }
-.timeshift-btn.negative:hover { border-color: var(--blue); color: var(--blue); background: rgba(52,73,94,0.05); }
-.timeshift-custom {
-  display: flex; align-items: center; gap: 8px; margin-top: 12px;
-}
-.timeshift-display {
-  text-align: center; font-size: 28px; font-weight: 700; color: var(--orange);
-  padding: 12px; background: rgba(230,126,34,0.08); border-radius: 12px; margin: 12px 0;
-}
-.timeshift-display.negative { color: var(--blue); background: rgba(52,73,94,0.08); }
 
 /* ─── SYNC UI ─── */
 .sync-badge {
@@ -495,7 +471,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
     </div>
     <span id="currentDateDisplay" style="font-weight:700; font-size:14px; flex-shrink:0; display:none;"></span>
     <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
-      <button id="timeShiftBtn" onclick="openTimeShift()" title="タイムシフト（一括時間移動）">⏩</button>
       <button id="pullBtn" onclick="manualPull()" title="今すぐ同期" style="font-size:18px; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink3); border:1px solid var(--border); background:var(--bg2);">↻</button>
       <button id="syncBtn" onclick="openSyncSettings()" title="データ同期設定">☁</button>
     </div>
@@ -627,42 +602,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   </nav>
 </div>
 
-<!-- ─── タイムシフトモーダル ─── -->
-<div id="timeShiftOverlay" class="overlay" onclick="closeTimeShift()">
-  <div class="modal-card" onclick="event.stopPropagation()" style="max-width:360px;">
-    <p class="modal-title">⏩ タイムシフト</p>
-    <p style="font-size:13px; color:var(--ink2); margin:0 0 16px; line-height:1.7;">
-      今日のタイムラインにある全タスクを一括で時間移動します。<br>
-      <span style="color:var(--purple); font-weight:700;">📌 固定マークのタスクは移動されません。</span>
-    </p>
-
-    <div id="timeShiftPreview" class="timeshift-display">0分</div>
-
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
-      <button class="timeshift-btn" onclick="addShiftMin(-60)">− 1時間</button>
-      <button class="timeshift-btn" onclick="addShiftMin(60)">＋ 1時間</button>
-      <button class="timeshift-btn" onclick="addShiftMin(-30)">− 30分</button>
-      <button class="timeshift-btn" onclick="addShiftMin(30)">＋ 30分</button>
-      <button class="timeshift-btn" onclick="addShiftMin(-15)">− 15分</button>
-      <button class="timeshift-btn" onclick="addShiftMin(15)">＋ 15分</button>
-    </div>
-
-    <div class="timeshift-custom">
-      <input type="number" id="timeShiftCustom" class="input-field" placeholder="分単位で入力" style="flex:1;">
-      <button onclick="applyCustomShift()" style="padding:12px 16px; background:var(--orange); color:white; border-radius:10px; font-weight:700; flex-shrink:0;">適用</button>
-    </div>
-
-    <div style="font-size:11px; color:var(--ink3); margin-top:8px; padding:8px; background:var(--bg2); border-radius:8px;">
-      ※ 繰り返しタスクは「今日のみ」のオーバーライドとして保存されます。<br>
-      ※ 📌 固定タスクはシフト対象外です。編集モーダルでピン留めを設定できます。
-    </div>
-
-    <div style="display:flex; gap:10px; margin-top:16px;">
-      <button onclick="closeTimeShift()" style="flex:1; padding:12px; color:var(--ink3); border:1px solid var(--border); border-radius:10px; font-weight:700;">キャンセル</button>
-      <button onclick="applyTimeShift()" style="flex:2; padding:12px; background:var(--orange); color:white; border-radius:10px; font-weight:700;">移動する</button>
-    </div>
-  </div>
-</div>
 
 <!-- ─── 編集モーダル ─── -->
 <div id="editOverlay" class="overlay" onclick="closeEdit()">
@@ -712,10 +651,10 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
     <!-- ── NEW: ピン留め（タイムシフト除外） ── -->
     <div class="input-group" id="editPinBox">
       <label style="display:flex; align-items:center; gap:10px; background:white; border:1px solid var(--border); border-radius:10px; padding:12px; cursor:pointer;">
-        <input type="checkbox" id="editPinned" style="width:20px;height:20px;accent-color:var(--purple);flex-shrink:0;">
+        <input type="checkbox" id="editScheduled" style="width:20px;height:20px;accent-color:var(--blue);flex-shrink:0;">
         <div>
-          <div style="font-size:13px; font-weight:700;">📌 タイムシフトから除外する</div>
-          <div style="font-size:11px; color:var(--ink3); margin-top:2px;">チェックするとタイムシフト時に動きません</div>
+          <div style="font-size:13px; font-weight:700;">📅 予定として登録（あとで移動しない）</div>
+          <div style="font-size:11px; color:var(--ink3); margin-top:2px;">時間が過ぎても自動でリストに移動しません</div>
         </div>
       </label>
     </div>
@@ -975,6 +914,11 @@ function checkOverdueTasks() {
 
     if (isDone) return; // 完了済みはスキップ
     if (taskEnd > nowMin) return; // まだ終わっていない
+    // 起床・就寝など special タスクは移動しない
+    const isSpecial = task.title.includes('起床') || task.title.includes('就寝');
+    if (isSpecial) return;
+    // 「予定」フラグが立っているタスクは移動しない
+    if (task.scheduled) return;
 
     // 既にあとで移動済みか確認
     if (!task.movedToLaterDates) task.movedToLaterDates = [];
@@ -1194,81 +1138,11 @@ function disconnectSync() {
   closeSyncSettings();
 }
 
-// ══════════════════════════════════════════════
-//  ③ タイムシフト機能（ピン留め対応）
-// ══════════════════════════════════════════════
-let timeShiftMinutes = 0;
 
-function openTimeShift() {
-  timeShiftMinutes = 0;
-  updateTimeShiftPreview();
-  document.getElementById('timeShiftCustom').value = '';
-  document.getElementById('timeShiftOverlay').style.display = 'flex';
-}
 
-function closeTimeShift() {
-  document.getElementById('timeShiftOverlay').style.display = 'none';
-  timeShiftMinutes = 0;
-}
 
-function addShiftMin(delta) {
-  timeShiftMinutes += delta;
-  updateTimeShiftPreview();
-}
 
-function applyCustomShift() {
-  const val = parseInt(document.getElementById('timeShiftCustom').value);
-  if (!isNaN(val)) {
-    timeShiftMinutes = val;
-    updateTimeShiftPreview();
-  }
-}
 
-function updateTimeShiftPreview() {
-  const el = document.getElementById('timeShiftPreview');
-  const abs = Math.abs(timeShiftMinutes);
-  const h = Math.floor(abs / 60), m = abs % 60;
-  const sign = timeShiftMinutes >= 0 ? '＋' : '−';
-  const timeStr = h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
-  el.textContent = timeShiftMinutes === 0 ? '0分' : `${sign}${timeStr}`;
-  el.className = `timeshift-display${timeShiftMinutes < 0 ? ' negative' : ''}`;
-}
-
-function applyTimeShift() {
-  if (timeShiftMinutes === 0) { closeTimeShift(); return; }
-
-  const dk = offsetToDateKey(currentDayOffset);
-  // ③ ピン留めされたタスクを除外
-  const dayTasks = state.tasks.filter(t =>
-    isTaskForToday(t, currentDayOffset) && !t.pinned
-  );
-
-  let movedCount = 0;
-  dayTasks.forEach(task => {
-    const currentStart = getTaskStart(task, currentDayOffset);
-    const newStart = Math.max(0, Math.min(1439, currentStart + timeShiftMinutes));
-
-    if (task.repeatMode !== 'none') {
-      if (!task.overrides) task.overrides = {};
-      task.overrides[dk] = { start: newStart };
-    } else {
-      task.start = newStart;
-    }
-    movedCount++;
-  });
-
-  closeTimeShift();
-  saveState();
-  renderAll();
-
-  const abs = Math.abs(timeShiftMinutes);
-  const h = Math.floor(abs / 60), m = abs % 60;
-  const sign = timeShiftMinutes >= 0 ? '+' : '-';
-  const timeStr = h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
-  const pinnedCount = state.tasks.filter(t => isTaskForToday(t, currentDayOffset) && t.pinned).length;
-  const pinnedMsg = pinnedCount > 0 ? `（📌 ${pinnedCount}件は固定）` : '';
-  showToast(`${sign}${timeStr} ずらしました${pinnedMsg}`);
-}
 
 // ══════════════════════════════════════════════
 //  LOGIC
@@ -1576,7 +1450,6 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
     const dk = offsetToDateKey(currentDayOffset);
     const done      = origTask.doneDates.includes(dk);
     const isSpecial = origTask.title.includes('起床') || origTask.title.includes('就寝');
-    const isPinned  = !!origTask.pinned;
 
     const taskStart = task.start;
     const taskEnd   = task.start + origTask.duration;
@@ -1589,7 +1462,8 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS) {
     const showProgress = isInProgress || isPassed;
 
     const el = document.createElement('div');
-    el.className = `block ${done?'completed':''} ${isSpecial?'special':''} ${showProgress?'in-progress':''} ${isPinned?'pinned':''}`;
+    const isScheduled = !!origTask.scheduled;
+    el.className = `block ${done?'completed':''} ${isSpecial?'special':''} ${showProgress?'in-progress':''} ${isScheduled?'scheduled':''}`;
     if (showProgress) {
       el.style.setProperty('--progress', progress + '%');
     }
@@ -1830,7 +1704,7 @@ function openGapTaskEdit(taskId, gapStart) {
   document.getElementById('editTimeBox').style.display  = 'block';
   document.getElementById('moveLaterBtn').style.display = 'none';
   document.getElementById('editPinBox').style.display   = 'block';
-  document.getElementById('editPinned').checked = !!task.pinned;
+  document.getElementById('editScheduled').checked = !!task.scheduled;
   document.getElementById('subtaskInput').value = '';
   renderSubtaskList(task);
   document.getElementById('editNotify').checked = !!task.notify;
@@ -1981,7 +1855,7 @@ function openEdit(id) {
     document.getElementById('editNotifyBox').style.display = 'none';
     document.getElementById('editPinBox').style.display   = 'none';
   }
-  document.getElementById('editPinned').checked = !!task.pinned;
+  document.getElementById('editScheduled').checked = !!task.scheduled;
   document.getElementById('editNotify').checked = !!task.notify;
   document.getElementById('notifyPermissionMsg').style.display = 'none';
   document.getElementById('subtaskInput').value = '';
@@ -2018,7 +1892,7 @@ function applyRepeatChange(mode) {
         customDays: [],
         doneDates: [],
         notify: task.notify || false,
-        pinned: task.pinned || false,
+        scheduled: task.scheduled || false,
         subtasks: task.subtasks ? JSON.parse(JSON.stringify(task.subtasks)) : [],
       };
       state.tasks.push(todayOnly);
@@ -2055,8 +1929,8 @@ function saveEdit() {
   const mv = parseInt(document.getElementById('editTimeM').value) || 0;
   const newStart = hv * 60 + mv;
 
-  // ③ ピン留め状態を保存
-  task.pinned = document.getElementById('editPinned').checked;
+  // ③ ピン留め・予定フラグを保存
+  task.scheduled  = document.getElementById('editScheduled').checked;
 
   const isRepeat        = task.repeatMode !== 'none';
   const wasAllocated    = task.allocated;
