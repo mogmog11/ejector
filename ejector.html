@@ -1377,6 +1377,8 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
           <li>右上の「Deploy」ボタンを押す</li>
           <li>左メニュー「KV」→「Create a namespace」→ 名前は何でもOK（例: <code>ejector</code>）→「Add」</li>
           <li>Workerの設定画面 →「Settings」→「Bindings」→「Add」→「KV Namespace」→ 変数名を <code>KV</code>、先ほどのKVを選択して保存</li>
+          <li>【バックグラウンド通知を使う場合】「Settings」→「Variables and Secrets」→「Add」→ 変数名 <code>VAPID_PRIVATE_KEY</code>、値に秘密鍵を入力して保存</li>
+          <li>【バックグラウンド通知を使う場合】「Triggers」→「Cron Triggers」→「Add Cron Trigger」→ <code>* * * * *</code> を入力して保存（毎分実行）</li>
           <li>Worker の URL（<code>https://xxx.workers.dev</code>）を下の欄に貼り付けて「接続する」</li>
         </ol>
         <div style="margin-top:8px; padding:10px; background:var(--bg3); border-radius:8px;">
@@ -3966,11 +3968,20 @@ function updateClock() {
         const key = `${task.id}-${taskStart}`;
         if (taskStart === min && !_notifiedKeys.has(key)) {
           _notifiedKeys.add(key);
-          new Notification(`⏰ ${task.title}`, {
-            body: '開始時刻になりました',
-            icon: './icon-192.png',
-            badge: './icon-192.png',
-            tag: key, // 同じタスクの重複通知を防ぐ
+          navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(`⏰ ${task.title}`, {
+              body: '開始時刻になりました',
+              icon: './icon-192.png',
+              badge: './icon-192.png',
+              tag: key,
+            });
+          }).catch(() => {
+            new Notification(`⏰ ${task.title}`, {
+              body: '開始時刻になりました',
+              icon: './icon-192.png',
+              badge: './icon-192.png',
+              tag: key,
+            });
           });
         }
       });
@@ -4557,97 +4568,13 @@ document.addEventListener('visibilitychange', () => {
 
 // Service Worker 登録（PWA対応）
 // ══════════════════════════════════════════════
-//  インライン Service Worker（オフラインキャッシュ対応）
+//  Service Worker 登録
 // ══════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
-  const SW_CODE = `
-const CACHE_NAME = 'ejector-v1';
-const FONT_URLS = [
-  'https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@300;400;500;700&display=swap'
-];
-
-self.addEventListener('install', event => {
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      // フォントCSSのみ事前キャッシュ（失敗してもOK）
-      return cache.addAll(FONT_URLS).catch(() => {});
-    })
-  );
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-  // Chrome拡張・POST・非HTTPはスキップ
-  if (!url.protocol.startsWith('http') || event.request.method !== 'GET') return;
-  // Cloudflare Worker（同期API）への通信はキャッシュしない
-  if (url.hostname.endsWith('workers.dev')) return;
-
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) {
-        // バックグラウンドで更新（Stale-While-Revalidate）
-        fetch(event.request).then(res => {
-          if (res && res.status === 200) {
-            caches.open(CACHE_NAME).then(c => c.put(event.request, res.clone()));
-          }
-        }).catch(() => {});
-        return cached;
-      }
-      return fetch(event.request).then(res => {
-        if (res && res.status === 200 && res.type !== 'opaque') {
-          caches.open(CACHE_NAME).then(c => c.put(event.request, res.clone()));
-        }
-        return res;
-      }).catch(() => caches.match('/'));
-    })
-  );
-});
-
-// Web Push通知
-self.addEventListener('push', event => {
-  if (!event.data) return;
-  let data;
-  try { data = event.data.json(); } catch(e) { data = { title: 'EJECTOR', body: event.data.text() }; }
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'EJECTOR', {
-      body: data.body || '',
-      icon: data.icon || '/icon-192.png',
-      badge: data.badge || '/icon-192.png',
-      data: data.data || {}
-    })
-  );
-});
-
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(list => {
-      const found = list.find(c => c.url && c.focus);
-      if (found) return found.focus();
-      return clients.openWindow('/');
-    })
-  );
-});
-`;
-
   window.addEventListener('load', async () => {
     try {
-      const blob = new Blob([SW_CODE], { type: 'application/javascript' });
-      const swUrl = URL.createObjectURL(blob);
-      const reg = await navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' });
+      const reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
       reg.update();
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        // スムーズな更新のみ（強制リロードなし）
-      });
     } catch(e) {
       console.log('SW error', e);
     }
