@@ -662,6 +662,62 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 #app.show-settings #later-view  { display: none; }
 #app.show-settings #report-view { display: none !important; }
 #app.show-settings #settings-view { display: flex !important; flex: 1; min-height: 0; }
+
+/* ─── AI COPY MODAL ─── */
+#aiCopyModal {
+  position: fixed; inset: 0; z-index: 3000;
+  display: none; align-items: center; justify-content: center; padding: 20px;
+  background: rgba(0,0,0,0.5);
+}
+#aiCopyModal.open { display: flex; }
+#aiCopyModalInner {
+  background: white; width: 100%; max-width: 420px;
+  border-radius: 20px; padding: 24px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+}
+.ai-template-btn {
+  display: block; width: 100%; text-align: left;
+  padding: 14px 16px; border-radius: 12px; margin-bottom: 10px;
+  border: 1.5px solid var(--border); background: white;
+  font-size: 14px; font-weight: 700; color: var(--ink);
+  cursor: pointer; transition: all 0.12s;
+}
+.ai-template-btn:hover { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+.ai-template-btn small { display: block; font-size: 11px; font-weight: 400; color: var(--ink3); margin-top: 3px; }
+.ai-copy-toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: var(--green); color: white; padding: 10px 20px;
+  border-radius: 20px; font-size: 13px; font-weight: 700;
+  z-index: 9999; pointer-events: none;
+  animation: toastFade 2.2s ease forwards;
+}
+@keyframes toastFade {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  15%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+}
+
+/* ─── RESIZE HANDLE ─── */
+.resize-handle {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 10px; cursor: ns-resize;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 0 0 8px 8px;
+}
+.resize-handle::after {
+  content: ''; display: block;
+  width: 32px; height: 3px; border-radius: 2px;
+  background: var(--border2); transition: background 0.15s;
+}
+.resize-handle:hover::after { background: var(--green); }
+
+/* ─── ENHANCED FREE GAP (30min+) ─── */
+.free-gap.large-gap {
+  background: linear-gradient(135deg, #f5efe6 0%, #fdf8f3 60%, #f0ebe0 100%);
+  border-style: dashed;
+}
+.free-gap.large-gap.drag-over { background: #ede0ce; border-style: solid; }
 </style>
 </head>
 <body>
@@ -691,6 +747,10 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
       <button onclick="openInsertTaskSheet(event)" title="差し込みタスク"
         style="font-size:12px; font-weight:700; padding:0 12px; height:36px; border-radius:18px; background:var(--now-line); color:white; display:flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
         📌 差し込む
+      </button>
+      <button id="aiCopyBtn" onclick="openAiCopy()" title="AIにコピー"
+        style="font-size:12px; font-weight:700; padding:0 12px; height:36px; border-radius:18px; background:var(--green-dim); color:var(--green); border:1.5px solid var(--green-glow); display:flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
+        🤖 AI
       </button>
       <button id="pullBtn" onclick="manualPull()" title="今すぐ同期" style="font-size:18px; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink3); border:1px solid var(--border); background:var(--bg2);">↻</button>
       <button id="syncBtn" onclick="openSyncSettings()" title="データ同期設定">☁</button>
@@ -2325,6 +2385,8 @@ function appendGapRow(tl, startMin, endMin, showChips) {
       </div>`;
   }
 
+  if (dur >= 30) gap.classList.add('large-gap');
+
   gap.ondragover  = e => { e.preventDefault(); gap.classList.add('drag-over'); };
   gap.ondragleave = () => gap.classList.remove('drag-over');
   gap.ondrop = e => {
@@ -2436,6 +2498,12 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
           ${badgesHTML}${memoHTML}
         </div>
         ${splitBtnHTML}`;
+    if (!isSpecial) {
+      const handle = document.createElement('div');
+      handle.className = 'resize-handle';
+      el.appendChild(handle);
+      initResizeHandle(handle, origTask);
+    }
     contentCol.appendChild(el);
   });
 
@@ -4566,6 +4634,161 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) pullFromBin();
 });
 
+// ══════════════════════════════════════════════
+//  AI COPY
+// ══════════════════════════════════════════════
+function openAiCopy() {
+  document.getElementById('aiCopyModal').classList.add('open');
+}
+
+function closeAiCopy() {
+  document.getElementById('aiCopyModal').classList.remove('open');
+}
+
+function copyAsMarkdown(template) {
+  closeAiCopy();
+
+  const d = new Date();
+  d.setDate(d.getDate() + currentDayOffset);
+  const dateStr = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日(${DAYS_JP[d.getDay()]})`;
+  const dk = offsetToDateKey(currentDayOffset);
+
+  const minToTime = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+
+  // タイムラインタスク（起床・就寝含む）
+  const dayTasks = state.tasks.filter(t => isTaskForToday(t, currentDayOffset));
+  dayTasks.sort((a, b) => getTaskStart(a, currentDayOffset) - getTaskStart(b, currentDayOffset));
+
+  const isWorkBoundary = t => !!(t.isWakeUp || t.isSleep);
+  const doneTasks    = dayTasks.filter(t => !isWorkBoundary(t) && t.doneDates && t.doneDates.includes(dk));
+  const pendingTasks = dayTasks.filter(t => !isWorkBoundary(t) && !(t.doneDates && t.doneDates.includes(dk)));
+
+  // タスクプール（未配置）
+  const laterTasks = state.tasks.filter(t => {
+    if (t.allocated) return false;
+    if (t.deletedDates && t.deletedDates.includes(dk)) return false;
+    return true;
+  });
+  const activeLater = laterTasks.filter(t => !(t.doneDates && t.doneDates.includes(dk)));
+  const doneLater   = laterTasks.filter(t =>  t.doneDates && t.doneDates.includes(dk));
+
+  let md = `# EJECTOR ログ - ${dateStr}\n\n`;
+
+  // 完了済みタスク
+  md += `## ✅ 完了したタスク\n`;
+  if (doneTasks.length === 0) {
+    md += `- (なし)\n`;
+  } else {
+    doneTasks.forEach(t => {
+      const s = getTaskStart(t, currentDayOffset);
+      md += `- [x] ${minToTime(s)} **${t.title}** (${t.duration}分)\n`;
+    });
+  }
+
+  // スケジュール全体
+  md += `\n## 📅 スケジュール（タイムライン）\n`;
+  dayTasks.forEach(t => {
+    const s = getTaskStart(t, currentDayOffset);
+    const done  = t.doneDates && t.doneDates.includes(dk);
+    const mark  = isWorkBoundary(t) ? '🔖' : (done ? '✅' : '⬜');
+    const label = isWorkBoundary(t) ? `*${t.title}*` : `**${t.title}**`;
+    md += `- ${mark} ${minToTime(s)}〜${minToTime(s + t.duration)} ${label} (${t.duration}分)\n`;
+  });
+
+  // タスクプール未着手
+  md += `\n## 📋 タスクプール（未着手）\n`;
+  const priLabel = { high: '[高]', mid: '[中]', low: '[低]' };
+  if (activeLater.length === 0) {
+    md += `- (なし)\n`;
+  } else {
+    activeLater.forEach(t => {
+      const pri  = t.priority ? ` ${priLabel[t.priority]||''}` : '';
+      const flag = t.todayFlag ? ' ⭐今日やる' : '';
+      md += `- ${t.title}${pri}${flag} (${t.duration}分)\n`;
+    });
+  }
+  if (doneLater.length > 0) {
+    md += `\n## ✅ タスクプール（完了）\n`;
+    doneLater.forEach(t => { md += `- [x] **${t.title}** (${t.duration}分)\n`; });
+  }
+
+  // テンプレートごとのプロンプト
+  const prompts = {
+    review: `\n---\n## 🤖 AIへの依頼\n以上が今日のEJECTORのログです。\n以下の観点で振り返りと改善提案をお願いします：\n1. 今日の生産性・時間の使い方の評価\n2. 改善できた点・うまくいった点\n3. 明日に向けての具体的なアドバイス`,
+    afternoon: `\n---\n## 🤖 AIへの依頼\n以上が現在のEJECTORの状況です。\n午後の計画を最適化してください：\n1. 残りタスクの優先順位付け\n2. タスクプールから追加すべきタスクの提案\n3. 無理のない午後のタイムライン案`,
+    breakdown: `\n---\n## 🤖 AIへの依頼\n以上のタスクプールを実行可能なステップに分解してください：\n1. 各タスクを30分以内のサブタスクに分割\n2. 着手しやすい順序の提案\n3. 最初の一歩となる具体的なアクション`,
+    raw: '',
+  };
+  md += (prompts[template] || '');
+
+  navigator.clipboard.writeText(md).then(() => {
+    showAiToast('✅ クリップボードにコピーしました');
+  }).catch(() => {
+    // フォールバック
+    const ta = document.createElement('textarea');
+    ta.value = md;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    showAiToast('✅ クリップボードにコピーしました');
+  });
+}
+
+function showAiToast(msg) {
+  const toast = document.createElement('div');
+  toast.className = 'ai-copy-toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2400);
+}
+
+// ══════════════════════════════════════════════
+//  RESIZE HANDLE（タスクブロック下端ドラッグで時間変更）
+// ══════════════════════════════════════════════
+function initResizeHandle(handleEl, task) {
+  const PX_PER_30MIN = 44; // 30分あたりの基準ピクセル量
+  let startY = 0, startDur = 0, dragging = false, lastDur = 0;
+
+  const applyDelta = (clientY) => {
+    const dy    = clientY - startY;
+    const steps = Math.round(dy / PX_PER_30MIN);
+    const newDur = Math.max(15, startDur + steps * 30);
+    if (newDur !== lastDur) {
+      lastDur = newDur;
+      task.duration = newDur;
+      saveState();
+      renderAll();
+    }
+  };
+
+  const onMouseMove = e => { if (dragging) applyDelta(e.clientY); };
+  const onTouchMove = e => { e.preventDefault(); if (dragging) applyDelta(e.touches[0].clientY); };
+
+  const onEnd = () => {
+    dragging = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup',   onEnd);
+    document.removeEventListener('touchmove', onTouchMove);
+    document.removeEventListener('touchend',  onEnd);
+  };
+
+  handleEl.addEventListener('mousedown', e => {
+    e.stopPropagation(); e.preventDefault();
+    dragging = true; startY = e.clientY; startDur = lastDur = task.duration;
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup',   onEnd);
+  });
+
+  handleEl.addEventListener('touchstart', e => {
+    e.stopPropagation();
+    dragging = true; startY = e.touches[0].clientY; startDur = lastDur = task.duration;
+    document.addEventListener('touchmove', onTouchMove, { passive: false });
+    document.addEventListener('touchend',  onEnd);
+  }, { passive: true });
+}
+
 // Service Worker 登録（PWA対応）
 // ══════════════════════════════════════════════
 //  Service Worker 登録
@@ -4581,5 +4804,32 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+<!-- ─── AI COPY MODAL ─── -->
+<div id="aiCopyModal" onclick="if(event.target===this)closeAiCopy()">
+  <div id="aiCopyModalInner">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+      <div style="font-size:17px; font-weight:700;">🤖 AIにコピー</div>
+      <button onclick="closeAiCopy()" style="font-size:20px; color:var(--ink3); padding:4px 8px;">×</button>
+    </div>
+    <div style="font-size:12px; color:var(--ink3); margin-bottom:14px;">テンプレートを選択してクリップボードにコピーします。</div>
+    <button class="ai-template-btn" onclick="copyAsMarkdown('review')">
+      📝 振り返り用
+      <small>完了タスク・スケジュール・プール → 今日の反省と改善提案を依頼</small>
+    </button>
+    <button class="ai-template-btn" onclick="copyAsMarkdown('afternoon')">
+      ☀ 午後の計画立案用
+      <small>残りタスク・空き時間 → 午後の最適スケジュールを依頼</small>
+    </button>
+    <button class="ai-template-btn" onclick="copyAsMarkdown('breakdown')">
+      ✂ タスク分解依頼用
+      <small>タスクプール一覧 → 小さなステップへの分解を依頼</small>
+    </button>
+    <button class="ai-template-btn" onclick="copyAsMarkdown('raw')" style="border-style:dashed; color:var(--ink3);">
+      📋 生データのみ（プロンプトなし）
+      <small>Markdown形式のログをそのままコピー</small>
+    </button>
+  </div>
+</div>
+
 </body>
 </html>
