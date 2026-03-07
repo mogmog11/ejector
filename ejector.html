@@ -81,8 +81,7 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
 #app.show-later #main       { display: none; }
 #app.show-later #rpanel     { width: 100%; border-left: none; }
 #app.show-later #input-view { display: none; }
-#app.show-later #project-view { display: none !important; }
-#app.show-later #report-view  { display: none !important; }
+#app.show-later #app.show-later #report-view  { display: none !important; }
 #app.show-later #later-view {
   display: flex; flex-direction: column;
   flex: 1; min-height: 0; overflow: hidden;
@@ -91,6 +90,12 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
 #app.show-later .later-list { flex: 1; overflow-y: auto; min-height: 0; }
 /* report-view */
 #report-view { display: none; }
+/* PC版 show-report */
+#app.show-report #rpanel      { width: 100%; border-left: none; }
+#app.show-report #main        { display: none; }
+#app.show-report #input-view  { display: none; }
+#app.show-report #later-view  { display: none; }
+#app.show-report #report-view { display: flex !important; flex: 1; min-height: 0; }
 
 /* ─── HEADER ─── */
 header {
@@ -270,23 +275,7 @@ header {
   position: absolute; left: 0; top: -4px;
 }
 
-/* ─── 残業セパレーター ─── */
-.tl-overtime-sep {
-  display: flex; align-items: center; gap: 8px;
-  margin: 8px 0; padding-left: 62px;
-}
-.overtime-sep-line {
-  flex: 1; height: 2px;
-  background: repeating-linear-gradient(90deg, #e67e22 0px, #e67e22 6px, transparent 6px, transparent 12px);
-  border-radius: 1px;
-}
-.overtime-sep-label {
-  font-size: 11px; font-weight: 700; color: #e67e22;
-  white-space: nowrap; flex-shrink: 0;
-  background: rgba(230,126,34,0.1); padding: 2px 8px; border-radius: 10px;
-}
-
-/* 業務開始・定時ブロックは青系で区別 */
+/* 起床・就寝ブロックは青系で区別 */
 .block.work-boundary { border-left-color: var(--blue) !important; background: #f0f4f8 !important; }
 
 /* 予定ブロック（チェックなし）は紫系 */
@@ -336,24 +325,6 @@ header {
 .now-btn:active { transform: scale(0.9); box-shadow: 0 1px 3px var(--green-glow); }
 .later-card.completed .now-btn { background: var(--bg3); box-shadow: none; color: var(--ink4); }
 
-/* ─── ルーティン時間帯ブロック ─── */
-.block.routine-block {
-  border-left-color: var(--orange) !important;
-  background: #fffaf4 !important;
-}
-.block.routine-block.in-progress {
-  background: linear-gradient(
-    to bottom,
-    rgba(230,126,34,0.13) var(--progress, 0%),
-    #fffaf4 var(--progress, 0%)
-  ) !important;
-}
-.routine-badge {
-  font-size: 10px; font-weight: 700; color: var(--orange);
-  background: var(--orange-dim); border-radius: 10px; padding: 2px 7px;
-  white-space: nowrap;
-}
-
 /* ─── フリータイム強化：チップにスコアバッジ ─── */
 .gap-task-chip-wrap {
   display: flex; flex-direction: column; gap: 3px;
@@ -372,17 +343,6 @@ header {
   white-space: nowrap; transition: opacity 0.15s;
 }
 .gap-insert-btn:active { opacity: 0.75; }
-
-/* ─── ルーティン管理モーダル ─── */
-.routine-item {
-  display: flex; align-items: center; gap: 8px;
-  background: white; border: 1px solid var(--border);
-  border-left: 4px solid var(--orange);
-  border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
-}
-.routine-item-info { flex: 1; min-width: 0; }
-.routine-item-title { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.routine-item-sub { font-size: 11px; color: var(--ink3); margin-top: 2px; }
 
 /* ─── LATER REPEAT BADGE ─── */
 .later-card.repeat { border-left: 4px solid var(--green); }
@@ -628,7 +588,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 /* ─── MEDIA QUERIES ─── */
 @media (max-width: 768px) {
   #insertFab { display: flex !important; }
-  #routineFab { display: flex !important; }
   #pcNav { display: none !important; }
   header { height: var(--header-h); padding: 0 12px; flex-wrap: nowrap; }
   #currentDateDisplay { display: none !important; }
@@ -663,19 +622,17 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   #app.show-input #rpanel { display: flex; width: 100%; border-left: none; overflow: hidden; }
   #app.show-input #later-view { display: none; }
   #app.show-input #input-view { display: flex; max-height: 100%; flex: 1; overflow-y: auto; }
-
-  #app.show-project #main { display: none; }
-  #app.show-project #rpanel { display: flex; width: 100%; border-left: none; overflow: hidden; }
-  #app.show-project #later-view { display: none; }
-  #app.show-project #input-view { display: none; }
-  #app.show-project #report-view { display: none !important; }
-  #app.show-project #project-view { display: flex !important; flex: 1; min-height: 0; }
-
   #app.show-report #main { display: none; }
   #app.show-report #rpanel { display: flex; width: 100%; border-left: none; overflow: hidden; }
   #app.show-report #later-view { display: none; }
   #app.show-report #input-view { display: none; }
   #app.show-report #report-view { display: flex !important; flex: 1; min-height: 0; }
+
+  #app.show-settings #main { display: none; }
+  #app.show-settings #rpanel { display: flex; width: 100%; border-left: none; overflow: hidden; }
+  #app.show-settings #later-view { display: none; }
+  #app.show-settings #input-view { display: none; }
+  #app.show-settings #settings-view { display: flex !important; flex: 1; min-height: 0; overflow-y: auto; }
 }
 
 /* ─── 今日やるバッジ ─── */
@@ -698,55 +655,13 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 
 /* ─── 設定ページ ─── */
 #settings-view { display: none; flex-direction: column; flex: 1; overflow-y: auto; }
-#app.show-settings #main        { display: none; }
+/* PC版 show-settings（設定を全画面表示） */
 #app.show-settings #rpanel      { width: 100%; border-left: none; }
+#app.show-settings #main        { display: none; }
 #app.show-settings #input-view  { display: none; }
 #app.show-settings #later-view  { display: none; }
-#app.show-settings #project-view { display: none !important; }
-#app.show-settings #report-view  { display: none !important; }
+#app.show-settings #report-view { display: none !important; }
 #app.show-settings #settings-view { display: flex !important; flex: 1; min-height: 0; }
-
-.wday-cell {
-  aspect-ratio: 1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;
-  border: 1.5px solid transparent; transition: all 0.12s; line-height:1.2;
-}
-.wday-cell.workday-registered { background: rgba(45,122,79,0.18); border-color: var(--green); color: var(--green); }
-.wday-cell.holiday  { background: #fce4ec; color: #c62828; cursor: default; }
-.wday-cell.weekend  { background: #f5f5f5; color: #aaa; }
-.wday-cell.today-cell { border-color: var(--now-line) !important; }
-.wday-cell:not(.holiday):hover { box-shadow: 0 0 0 2px var(--green); }
-
-/* ─── プロジェクトページ ─── */
-#project-view {
-  display: none; flex-direction: column; flex: 1; overflow-y: auto;
-}
-.proj-card {
-  background: white; border: 1px solid var(--border); border-radius: 14px;
-  padding: 14px 16px; margin-bottom: 10px;
-  display: flex; align-items: center; gap: 12px;
-  cursor: pointer; transition: box-shadow 0.15s;
-}
-.proj-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
-.proj-color-dot {
-  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
-  border: 2px solid rgba(0,0,0,0.1);
-}
-.proj-status-badge {
-  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 8px;
-  background: var(--bg2); color: var(--ink3); white-space: nowrap;
-}
-.proj-status-badge.active   { background: rgba(45,122,79,0.15); color: var(--green); }
-.proj-status-badge.done     { background: var(--bg3); color: var(--ink4); }
-.proj-status-badge.hold     { background: rgba(230,126,34,0.12); color: #e67e22; }
-
-/* ─── カラーピッカー ─── */
-.color-swatch {
-  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
-  border: 3px solid transparent; transition: border-color 0.15s, transform 0.1s;
-  flex-shrink: 0;
-}
-.color-swatch.selected { border-color: var(--ink); transform: scale(1.15); }
 </style>
 </head>
 <body>
@@ -768,7 +683,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
       <button class="pc-nav-btn active" id="pcNavMain"     onclick="switchTab('main')"    >📅 予定</button>
       <button class="pc-nav-btn"        id="pcNavLater"    onclick="switchTab('later')"   >📋 リスト</button>
       <button class="pc-nav-btn"        id="pcNavInput"    onclick="switchTab('input')"   >＋ 追加</button>
-      <button class="pc-nav-btn"        id="pcNavProject"  onclick="switchTab('project')" >🗂 PJ</button>
       <button class="pc-nav-btn"        id="pcNavReport"   onclick="switchTab('report')"  >📊 レポート</button>
       <button class="pc-nav-btn"        id="pcNavSettings" onclick="switchTab('settings')">⚙ 設定</button>
     </div>
@@ -777,10 +691,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
       <button onclick="openInsertTaskSheet(event)" title="差し込みタスク"
         style="font-size:12px; font-weight:700; padding:0 12px; height:36px; border-radius:18px; background:var(--now-line); color:white; display:flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
         📌 差し込む
-      </button>
-      <button onclick="openRoutineManager()" title="ルーティン管理"
-        style="font-size:12px; font-weight:700; padding:0 12px; height:36px; border-radius:18px; background:var(--orange); color:white; display:flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
-        🕐 ルーティン
       </button>
       <button id="pullBtn" onclick="manualPull()" title="今すぐ同期" style="font-size:18px; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink3); border:1px solid var(--border); background:var(--bg2);">↻</button>
       <button id="syncBtn" onclick="openSyncSettings()" title="データ同期設定">☁</button>
@@ -1024,21 +934,22 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
             <button onclick="changeReportWeek(1)" style="width:32px;height:32px;border-radius:50%;background:var(--bg2);font-size:18px;display:flex;align-items:center;justify-content:center;">›</button>
           </div>
 
-          <!-- 習慣トラッカー -->
+          <!-- 今日の達成 -->
           <div style="background:white;border-radius:14px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
-            <div style="font-weight:700;font-size:13px;margin-bottom:12px;">🔁 習慣トラッカー</div>
-            <div id="habitTracker"></div>
+            <div style="font-weight:700;font-size:13px;margin-bottom:12px;">✅ 今週の達成タスク数</div>
+            <div id="weekTaskDone"></div>
           </div>
 
-          <!-- 時間の使い方グラフ -->
+          <!-- 集中しやすい時間帯 -->
           <div style="background:white;border-radius:14px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
-            <div style="font-weight:700;font-size:13px;margin-bottom:12px;">⏱ 時間の使い方</div>
-            <div id="timeGraph"></div>
+            <div style="font-weight:700;font-size:13px;margin-bottom:4px;">🎯 集中しやすい時間帯</div>
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:12px;">タスク完了が多い時間帯を分析（過去データ基準）</div>
+            <div id="focusTimeGraph"></div>
           </div>
 
-          <!-- 週次レビュー -->
+          <!-- 週次サマリー -->
           <div style="background:white;border-radius:14px;padding:14px;margin-bottom:14px;border:1px solid var(--border);">
-            <div style="font-weight:700;font-size:13px;margin-bottom:12px;">📋 週次レビュー</div>
+            <div style="font-weight:700;font-size:13px;margin-bottom:12px;">📋 週次サマリー</div>
             <div id="weeklyReview"></div>
           </div>
 
@@ -1051,42 +962,38 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
         </div>
         <div style="padding:16px; overflow-y:auto; flex:1;">
 
-          <!-- 出勤日カレンダー -->
+          <!-- 起床・就寝時間設定 -->
           <div style="background:white; border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;">
-            <div style="font-weight:700; font-size:14px; margin-bottom:4px;">📅 出勤日カレンダー</div>
-            <div style="font-size:12px; color:var(--ink3); margin-bottom:12px; line-height:1.6;">
-              土日でも出勤する日を登録すると、次営業日の計算に反映されます。<br>
-              祝日は自動で取得・反映されます（オンライン時）。
+            <div style="font-weight:700; font-size:14px; margin-bottom:12px;">🌅 起床・就寝時間</div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:13px; color:var(--ink2); width:60px;">🌅 起床</span>
+                <input type="time" id="settingWakeTime" value="07:00"
+                  onchange="updateBoundaryTime('wake', this.value)"
+                  style="flex:1; padding:8px 12px; border-radius:8px; border:1.5px solid var(--border); font-size:14px; font-weight:700;">
+              </div>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span style="font-size:13px; color:var(--ink2); width:60px;">🌙 就寝</span>
+                <input type="time" id="settingSleepTime" value="23:00"
+                  onchange="updateBoundaryTime('sleep', this.value)"
+                  style="flex:1; padding:8px 12px; border-radius:8px; border:1.5px solid var(--border); font-size:14px; font-weight:700;">
+              </div>
             </div>
-            <!-- 月切り替え -->
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-              <button onclick="changeWorkdayMonth(-1)" style="width:32px;height:32px;border-radius:50%;background:var(--bg2);font-size:18px;display:flex;align-items:center;justify-content:center;">‹</button>
-              <span id="workdayMonthLabel" style="font-weight:700; font-size:14px;"></span>
-              <button onclick="changeWorkdayMonth(1)"  style="width:32px;height:32px;border-radius:50%;background:var(--bg2);font-size:18px;display:flex;align-items:center;justify-content:center;">›</button>
-            </div>
-            <!-- カレンダーグリッド -->
-            <div id="workdayCalendarGrid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;">
-            </div>
-            <div style="display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; font-size:11px; color:var(--ink3);">
-              <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:rgba(45,122,79,0.2);vertical-align:middle;margin-right:3px;"></span>出勤日（登録済み）</span>
-              <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#fce4ec;vertical-align:middle;margin-right:3px;"></span>祝日</span>
-              <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#f5f5f5;vertical-align:middle;margin-right:3px;"></span>土日</span>
+          </div>
+
+          <!-- データ管理 -->
+          <div style="background:white; border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:12px;">🗂 データ管理</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <button onclick="exportData()" style="padding:10px 16px; border-radius:8px; border:1.5px solid var(--border); background:white; font-size:13px; font-weight:700; cursor:pointer; text-align:left;">📤 データをエクスポート</button>
+              <button onclick="importData()" style="padding:10px 16px; border-radius:8px; border:1.5px solid var(--border); background:white; font-size:13px; font-weight:700; cursor:pointer; text-align:left;">📥 データをインポート</button>
             </div>
           </div>
 
         </div>
       </section>
 
-      <!-- プロジェクトページ -->
-      <section id="project-view">
-        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 16px 8px;">
-          <div class="section-title" style="padding:0; margin:0;">🗂 プロジェクト</div>
-          <button onclick="openProjectEdit(null)" style="padding:6px 14px; background:var(--green); color:white; border-radius:20px; font-size:12px; font-weight:700;">＋ 追加</button>
-        </div>
-        <div style="padding:0 16px 16px; flex:1; overflow-y:auto;">
-          <div id="project-list"></div>
-        </div>
-      </section>
+
     </aside>
   </div>
 
@@ -1099,15 +1006,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
            font-size:20px; box-shadow:0 4px 16px rgba(0,0,0,0.25);
            cursor:pointer; border:none;">
     📌
-  </div>
-  <div id="routineFab" onclick="openRoutineManager()"
-    style="position:fixed; bottom:140px; right:16px; z-index:200;
-           width:44px; height:44px; border-radius:50%;
-           background:var(--orange); color:white;
-           display:none; align-items:center; justify-content:center;
-           font-size:18px; box-shadow:0 4px 12px rgba(230,126,34,0.4);
-           cursor:pointer; border:none;">
-    🕐
   </div>
 
   <nav id="tabNav">
@@ -1123,9 +1021,9 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
       <span>追加</span>
     </button>
-    <button class="tab-btn" onclick="switchTab('project')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/><circle cx="7" cy="7" r="2" fill="currentColor"/><circle cx="7" cy="12" r="2" fill="currentColor"/><circle cx="7" cy="17" r="2" fill="currentColor"/></svg>
-      <span>PJ</span>
+    <button class="tab-btn" onclick="switchTab('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <span>設定</span>
     </button>
     <button class="tab-btn" onclick="switchTab('report')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18l5-5 4 4 5-6 4 4"/><path d="M3 6h18"/></svg>
@@ -1249,59 +1147,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   </div>
 </div>
 
-<!-- ─── プロジェクト編集モーダル ─── -->
-<div id="projectEditOverlay" class="overlay" onclick="closeProjectEdit()">
-  <div class="modal-card" onclick="event.stopPropagation()" style="max-width:420px;">
-    <p class="modal-title" id="projectEditTitle">プロジェクトを追加</p>
-    <input type="hidden" id="editProjectId">
-    <div class="input-group">
-      <label>プロジェクト名</label>
-      <input type="text" id="projEditName" class="input-field" placeholder="例: 営業, 開発, 経費管理">
-    </div>
-    <div class="input-group">
-      <label>カラー</label>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;" id="colorSwatches">
-        <div class="color-swatch selected" style="background:#2d7a4f;" data-color="#2d7a4f" onclick="selectProjectColor(this)"></div>
-        <div class="color-swatch" style="background:#2980b9;" data-color="#2980b9" onclick="selectProjectColor(this)"></div>
-        <div class="color-swatch" style="background:#8e44ad;" data-color="#8e44ad" onclick="selectProjectColor(this)"></div>
-        <div class="color-swatch" style="background:#c0392b;" data-color="#c0392b" onclick="selectProjectColor(this)"></div>
-        <div class="color-swatch" style="background:#e67e22;" data-color="#e67e22" onclick="selectProjectColor(this)"></div>
-        <div class="color-swatch" style="background:#16a085;" data-color="#16a085" onclick="selectProjectColor(this)"></div>
-        <div class="color-swatch" style="background:#d35400;" data-color="#d35400" onclick="selectProjectColor(this)"></div>
-        <div class="color-swatch" style="background:#2c3e50;" data-color="#2c3e50" onclick="selectProjectColor(this)"></div>
-        <div class="color-swatch" style="background:#7f8c8d;" data-color="#7f8c8d" onclick="selectProjectColor(this)"></div>
-        <div class="color-swatch" style="background:#f39c12;" data-color="#f39c12" onclick="selectProjectColor(this)"></div>
-      </div>
-    </div>
-    <div style="display:flex; gap:10px; margin-bottom:12px;">
-      <div class="input-group" style="flex:1;margin-bottom:0;">
-        <label>担当者</label>
-        <input type="text" id="projEditAssignee" class="input-field" placeholder="担当者名" style="padding:10px 12px;font-size:13px;">
-      </div>
-      <div class="input-group" style="flex:1;margin-bottom:0;">
-        <label>ステータス</label>
-        <select id="projEditStatus" class="input-field" style="padding:10px 12px;font-size:13px;">
-          <option value="active">進行中</option>
-          <option value="hold">保留</option>
-          <option value="done">完了</option>
-        </select>
-      </div>
-    </div>
-    <div class="input-group">
-      <label>期限</label>
-      <input type="date" id="projEditDeadline" class="input-field">
-    </div>
-    <div class="input-group">
-      <label>メモ</label>
-      <textarea id="projEditMemo" class="input-field" rows="2" placeholder="概要・リンクなど..." style="resize:vertical;font-size:13px;line-height:1.6;"></textarea>
-    </div>
-    <div style="display:flex; gap:10px; margin-top:4px;">
-      <button id="projDeleteBtn" onclick="deleteProject()" style="flex:1; padding:12px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700; display:none;">削除</button>
-      <button onclick="saveProjectEdit()" style="flex:2; padding:12px; background:var(--green); color:white; border-radius:10px; font-weight:700;">保存</button>
-    </div>
-  </div>
-</div>
-
 <!-- ─── 差し込み確認モーダル ─── -->
 <div id="insertOverlay" class="overlay">
   <div class="modal-card" onclick="event.stopPropagation()" style="max-width:340px;">
@@ -1371,66 +1216,11 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   </div>
 </div>
 
-<!-- ─── ルーティン管理モーダル ─── -->
-<div id="routineOverlay" class="overlay" onclick="closeRoutineManager()">
-  <div class="modal-card" onclick="event.stopPropagation()" style="max-width:420px;">
-    <div class="modal-body">
-      <p class="modal-title">🕐 ルーティン時間帯</p>
-      <p style="font-size:12px;color:var(--ink3);margin:0 0 16px;line-height:1.6;">
-        毎日決まった時間帯に行うルーティン（朝の支度、昼食など）を登録すると、タイムラインに固定ブロックとして表示されます。
-      </p>
-
-      <!-- ルーティン一覧 -->
-      <div id="routineList" style="margin-bottom:16px;"></div>
-
-      <!-- 追加フォーム -->
-      <div style="background:var(--bg2);border-radius:12px;padding:14px;">
-        <div style="font-size:12px;font-weight:700;color:var(--ink2);margin-bottom:10px;">＋ 新しいルーティンを追加</div>
-        <div class="input-group">
-          <label>名前</label>
-          <input type="text" id="routineTitle" class="input-field" placeholder="例: 朝の支度、昼食、お風呂...">
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <div style="flex:1;">
-            <label style="font-size:11px;font-weight:700;color:var(--ink3);display:block;margin-bottom:4px;">開始時間</label>
-            <div style="display:flex;gap:4px;align-items:center;">
-              <select id="routineStartH" class="input-field" style="flex:1;padding:8px;"></select>
-              <span style="font-weight:700;">:</span>
-              <select id="routineStartM" class="input-field" style="flex:1;padding:8px;"></select>
-            </div>
-          </div>
-          <div style="flex:1;">
-            <label style="font-size:11px;font-weight:700;color:var(--ink3);display:block;margin-bottom:4px;">所要時間</label>
-            <div style="display:flex;gap:4px;align-items:center;">
-              <input type="number" id="routineDur" class="input-field" value="30" min="5" style="padding:8px;">
-              <span style="font-size:12px;color:var(--ink3);white-space:nowrap;">分</span>
-            </div>
-          </div>
-        </div>
-        <div class="input-group">
-          <label>繰り返し</label>
-          <select id="routineRepeat" class="input-field">
-            <option value="daily">毎日</option>
-            <option value="weekday">平日（月〜金）</option>
-            <option value="weekend">休日（土・日）</option>
-          </select>
-        </div>
-        <button onclick="addRoutine()"
-          style="width:100%;padding:12px;background:var(--orange);color:white;border-radius:10px;font-weight:700;font-size:14px;">
-          ＋ 追加
-        </button>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button onclick="closeRoutineManager()" style="width:100%;padding:12px;color:var(--ink3);font-weight:700;border:1px solid var(--border);border-radius:10px;">閉じる</button>
-    </div>
-  </div>
-</div>
 
 <!-- ─── 次営業日送りモーダル ─── -->
 <div id="deferOverlay" class="overlay" onclick="closeDeferPicker()">
   <div class="modal-card" onclick="event.stopPropagation()" style="max-width:340px;">
-    <p class="modal-title" style="font-size:15px;">📅 次の日に送る</p>
+    <p class="modal-title" style="font-size:15px;">📅 別の日に送る</p>
     <p id="deferTaskName" style="font-size:13px;color:var(--ink2);margin:0 0 16px;font-weight:700;"></p>
     <!-- クイック選択 -->
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;" id="deferQuickBtns"></div>
@@ -1975,16 +1765,12 @@ let editingTaskId = null;
 let currentRange = { start: 540, end: 1440, workEndMin: 1110 };
 
 const DEFAULT_TASKS = [
-  { id: 1, title: '業務開始', start: 540, duration: 30, allocated: true, repeatMode: 'weekday', customDays: [], doneDates: [], isWorkStart: true },
-  { id: 2, title: '定時', start: 1080, duration: 30, allocated: true, repeatMode: 'weekday', customDays: [], doneDates: [], isWorkEnd: true },
-  { id: 3, title: 'ミーティング', start: 600, duration: 60, allocated: true, repeatMode: 'weekday', customDays: [], doneDates: [] }
+  { id: 1, title: '起床', start: 420, duration: 30, allocated: true, repeatMode: 'daily', customDays: [], doneDates: [], isWakeUp: true },
+  { id: 2, title: '就寝', start: 1380, duration: 60, allocated: true, repeatMode: 'daily', customDays: [], doneDates: [], isSleep: true },
 ];
 
 const state = {
-  tasks: JSON.parse(JSON.stringify(DEFAULT_TASKS)),
-  projects: [],   // { id, name, color, assignee, memo, deadline, status }
-  workdays: {},   // { "YYYY-MM-DD": true } 土日でも出勤扱いにする日
-  routines: []    // { id, title, startH, startM, duration, repeat:'daily'|'weekday'|'weekend' }
+  tasks: JSON.parse(JSON.stringify(DEFAULT_TASKS))
 };
 
 // ══════════════════════════════════════════════
@@ -2054,20 +1840,14 @@ function migrateTaskDates() {
   if (changed) saveToLocal();
 }
 
-// 起床/就寝 → 業務開始/定時 マイグレーション
+// 業務開始/定時 → 起床/就寝 マイグレーション（プライベート版）
 function migrateWorkBoundaryTitles() {
   let changed = false;
   state.tasks.forEach(task => {
-    if (task.title === '起床' && !task.isWorkStart) {
-      task.title = '業務開始'; task.isWorkStart = true;
-      task.repeatMode = task.repeatMode === 'daily' ? 'weekday' : task.repeatMode;
-      changed = true;
-    }
-    if (task.title === '就寝' && !task.isWorkEnd) {
-      task.title = '定時'; task.isWorkEnd = true;
-      task.repeatMode = task.repeatMode === 'daily' ? 'weekday' : task.repeatMode;
-      changed = true;
-    }
+    if (task.title === '業務開始') { task.title = '起床'; task.isWakeUp = true; delete task.isWorkStart; if (task.repeatMode === 'weekday') task.repeatMode = 'daily'; changed = true; }
+    else if (task.title === '定時') { task.title = '就寝'; task.isSleep = true; delete task.isWorkEnd; if (task.repeatMode === 'weekday') task.repeatMode = 'daily'; changed = true; }
+    if (task.isWorkStart) { task.isWakeUp = true; delete task.isWorkStart; changed = true; }
+    if (task.isWorkEnd)   { task.isSleep  = true; delete task.isWorkEnd;   changed = true; }
   });
   if (changed) saveToLocal();
 }
@@ -2075,28 +1855,17 @@ function migrateWorkBoundaryTitles() {
 
 function saveToLocal() {
   localStorage.setItem('ejector_tasks',    JSON.stringify(state.tasks));
-  localStorage.setItem('ejector_projects', JSON.stringify(state.projects));
-  localStorage.setItem('ejector_workdays', JSON.stringify(state.workdays));
-  localStorage.setItem('ejector_routines', JSON.stringify(state.routines));
 }
 
 function loadFromLocal() {
   try {
     const s = localStorage.getItem('ejector_tasks');
     if (s) state.tasks = JSON.parse(s);
-    const p = localStorage.getItem('ejector_projects');
-    if (p) state.projects = JSON.parse(p);
-    const w = localStorage.getItem('ejector_workdays');
-    if (w) state.workdays = JSON.parse(w);
-    const r = localStorage.getItem('ejector_routines');
-    if (r) state.routines = JSON.parse(r);
   } catch(e) { /* デフォルトを使用 */ }
 }
 
 function getProjectColor(projectName) {
-  if (!projectName) return null;
-  const proj = state.projects.find(p => p.name === projectName);
-  return proj ? proj.color : null;
+  return null; // PJ機能は無効
 }
 
 // ══════════════════════════════════════════════
@@ -2144,7 +1913,7 @@ async function pullFromBin() {
     showSyncStatus('ok');
   } catch(e) {
     console.error('CF Workers pull error:', e);
-    showSyncStatus('error');
+    showSyncStatus('error', e.message);
   }
 }
 
@@ -2179,7 +1948,7 @@ function saveState() {
   pushToBin();
 }
 
-function showSyncStatus(status) {
+function showSyncStatus(status, errMsg) {
   syncStatusVal = status;
   const btn = document.getElementById('syncBtn');
   const icons  = { off: '☁', syncing: '<span class="spin">↻</span>', ok: '✓', error: '✗' };
@@ -2188,8 +1957,8 @@ function showSyncStatus(status) {
 
   const badge = document.getElementById('syncStatusBadge');
   if (badge) {
-    const labels = { off: '⊘ 未接続', syncing: '↻ 同期中...', ok: '✓ 接続済み', error: '✗ エラー（Worker URLを確認してください）' };
-    badge.textContent = labels[status];
+    const baseLabels = { off: '⊘ 未接続', syncing: '↻ 同期中...', ok: '✓ 接続済み', error: '✗ 接続エラー' };
+    badge.textContent = baseLabels[status] + (errMsg ? `（${errMsg}）` : '');
     badge.className   = `sync-badge ${status}`;
   }
 }
@@ -2220,8 +1989,19 @@ async function connectSync() {
   syncCfg = { workerUrl, secret };
 
   // 接続テスト（取得）
-  await pullFromBin();
-  if (syncStatusVal !== 'error') closeSyncSettings();
+  showSyncStatus('syncing');
+  try {
+    const testRes = await fetch(workerUrl, { headers: { 'Content-Type': 'application/json', ...(secret ? { 'X-Secret': secret } : {}) } });
+    if (!testRes.ok) {
+      showSyncStatus('error', `HTTP ${testRes.status}`);
+      return;
+    }
+    await pullFromBin();
+    if (syncStatusVal !== 'error') closeSyncSettings();
+  } catch(e) {
+    const msg = e.message.includes('Failed to fetch') ? 'URLに接続できません' : e.message;
+    showSyncStatus('error', msg);
+  }
 }
 
 function disconnectSync() {
@@ -2270,20 +2050,16 @@ function isTaskForToday(task, offset) {
   return false;
 }
 
-/** ★ バーチカルは業務開始〜23:59まで（残業タスクも表示） */
+/** ★ バーチカルは起床〜就寝まで */
 function getTimelineRange(dayTasks) {
-  const workStart = dayTasks.find(t => t.isWorkStart || t.title.includes('業務開始') || t.title.includes('起床'));
-  const workEnd   = dayTasks.find(t => t.isWorkEnd   || t.title.includes('定時')     || t.title.includes('就寝'));
-  // 残業タスクが定時より後にあれば、そこまで表示を延ばす
+  const workStart = dayTasks.find(t => t.isWakeUp || t.title.includes('起床'));
+  const workEnd   = dayTasks.find(t => t.isSleep || t.title.includes('就寝'));
+  // 就寝後にタスクがあれば、そこまで表示を延ばす
   const latestTask = dayTasks.reduce((max, t) => Math.max(max, (t.start||0) + (t.duration||0)), 0);
   const workEndMin = workEnd ? workEnd.start + workEnd.duration : 1080;
-  // ルーティンの終了時刻も考慮
-  const routines = getRoutinesForDay(currentDayOffset);
-  const latestRoutine = routines.reduce((max, r) => Math.max(max, r.startH * 60 + r.startM + r.duration), 0);
-  const rangeEnd   = Math.max(workEndMin + 60, latestTask + 30, latestRoutine + 30, workEndMin);
-  const earliestRoutine = routines.reduce((min, r) => Math.min(min, r.startH * 60 + r.startM), 1440);
+  const rangeEnd   = Math.max(workEndMin + 60, latestTask + 30);
   return {
-    start:      Math.min(workStart ? workStart.start : 540, routines.length ? earliestRoutine : 1440),
+    start:      workStart ? workStart.start : 540,
     end:        Math.min(rangeEnd, 1440),
     workEndMin: workEndMin
   };
@@ -2377,21 +2153,7 @@ function renderTimeline(dayTasks, range) {
   const tl = document.getElementById('timeline');
   tl.innerHTML = '';
 
-  // ルーティンブロックを仮想タスクとして追加
-  const routineVirtualTasks = getRoutinesForDay(currentDayOffset).map(r => ({
-    id: `routine_${r.id}`,
-    title: r.title,
-    start: r.startH * 60 + r.startM,
-    duration: r.duration,
-    allocated: true,
-    repeatMode: r.repeat,
-    customDays: [],
-    doneDates: [],
-    _isRoutine: true,
-    _routineId: r.id
-  }));
-
-  const allTasks = [...dayTasks, ...routineVirtualTasks];
+  const allTasks = [...dayTasks];
   allTasks.sort((a, b) => getTaskStart(a, currentDayOffset) - getTaskStart(b, currentDayOffset));
 
   const isMobile = window.innerWidth <= 768;
@@ -2437,14 +2199,9 @@ function renderTimeline(dayTasks, range) {
   if (pos < range.end) renderItems.push({ type: 'gap', start: pos, end: range.end });
 
   const workEndMin = range.workEndMin || 1080;
-  let overtimeInserted = false;
 
   renderItems.forEach(item => {
     // 定時ラインを挿入（まだ挿入していない かつ このアイテムが定時を超えている）
-    if (!overtimeInserted && item.start >= workEndMin) {
-      overtimeInserted = true;
-      appendOvertimeSeparator(tl);
-    }
 
     if (item.type === 'gap') {
       // 現在時刻ラインを挿入（gap内）
@@ -2480,16 +2237,6 @@ function appendNowRow(tl) {
   const row = document.createElement('div');
   row.className = 'tl-now-row';
   row.innerHTML = `<div class="tl-now-line"></div><button class="now-insert-btn" onclick="openInsertTaskSheet(event)">📌 差し込む</button>`;
-  tl.appendChild(row);
-}
-
-function appendOvertimeSeparator(tl) {
-  const row = document.createElement('div');
-  row.className = 'tl-overtime-sep';
-  row.innerHTML = `
-    <div class="overtime-sep-line"></div>
-    <div class="overtime-sep-label">🌙 残業</div>
-    <div class="overtime-sep-line"></div>`;
   tl.appendChild(row);
 }
 
@@ -2612,14 +2359,12 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
 
   const sorted = [...tasks].sort((a,b) => (colMap.get(a.id)||0) - (colMap.get(b.id)||0));
   sorted.forEach(task => {
-    // ルーティン仮想タスクの処理
-    const isRoutine = !!task._isRoutine;
-    const origTask = isRoutine ? task : state.tasks.find(t => t.id === task.id);
+    const origTask = state.tasks.find(t => t.id === task.id);
     if (!origTask) return;
     const dk = offsetToDateKey(currentDayOffset);
     const done      = origTask.doneDates ? origTask.doneDates.includes(dk) : false;
-    const isWorkBoundary = !isRoutine && !!(origTask.isWorkStart || origTask.isWorkEnd || origTask.title.includes('業務開始') || origTask.title.includes('定時') || origTask.title.includes('起床') || origTask.title.includes('就寝'));
-    const isEvent   = !isRoutine && origTask.taskType === 'event';
+    const isWorkBoundary = !!(origTask.isWakeUp || origTask.isSleep || origTask.title.includes('起床') || origTask.title.includes('就寝'));
+    const isEvent   = origTask.taskType === 'event';
     const isSpecial = isWorkBoundary || isEvent;
 
     // 進行中かどうかを判定してプログレスを計算
@@ -2636,19 +2381,19 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
     const showProgress = isInProgress || isPassed;
 
     const el = document.createElement('div');
-    el.className = `block ${done?'completed':''} ${isRoutine?'routine-block':''} ${isWorkBoundary?'special work-boundary':''} ${isEvent?'special event-block':''} ${showProgress?'in-progress':''}`;
+    el.className = `block ${done?'completed':''} ${isWorkBoundary?'special work-boundary':''} ${isEvent?'special event-block':''} ${showProgress?'in-progress':''}`;
     if (showProgress) {
       el.style.setProperty('--progress', progress + '%');
     }
-    // プロジェクト色を左ボーダーに適用（ルーティンは除く）
-    const projColor = !isWorkBoundary && !isEvent && !isRoutine ? getProjectColor(origTask.project) : null;
+    // プロジェクト色を左ボーダーに適用
+    const projColor = !isWorkBoundary && !isEvent ? getProjectColor(origTask.project) : null;
     if (projColor) el.style.borderLeftColor = projColor;
-    el.draggable = !isSpecial && !isRoutine;
-    if (!isSpecial && !isRoutine) el.ondragstart = e => e.dataTransfer.setData('taskId', origTask.id);
-    el.onclick = () => isRoutine ? openRoutineEditInline(origTask._routineId) : openEdit(origTask.id);
-    if (!isSpecial && !isRoutine) setupLongPress(el, origTask.id);
+    el.draggable = !isSpecial;
+    if (!isSpecial) el.ondragstart = e => e.dataTransfer.setData('taskId', origTask.id);
+    el.onclick = () => openEdit(origTask.id);
+    if (!isSpecial) setupLongPress(el, origTask.id);
 
-    const cbHTML = (isSpecial || isEvent || isRoutine) ? '' :
+    const cbHTML = (isSpecial || isEvent) ? '' :
       `<input type="checkbox" class="task-checkbox" ${done?'checked':''} onclick="event.stopPropagation();toggleDone(${origTask.id})">`;
 
     const priMap = { high: '🔴 高', mid: '🟠 中', low: '🔵 低' };
@@ -2665,7 +2410,7 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
       : '';
 
     // 進行中なら「中断」ボタン、それ以外は「✂️ 分割」ボタン
-    const splitBtnHTML = (!isSpecial && !isEvent && !isRoutine)
+    const splitBtnHTML = (!isSpecial && !isEvent)
       ? (isInProgress
           ? `<button onclick="event.stopPropagation();openInterrupt(${origTask.id})"
                title="中断してあとでリストへ"
@@ -2679,23 +2424,7 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
                       cursor:pointer;align-self:flex-start;margin-top:2px;line-height:1;">✂️</button>`)
       : '';
 
-    if (isRoutine) {
-      // ルーティンブロック専用表示
-      const repeatLabel = { daily:'毎日', weekday:'平日', weekend:'休日' };
-      el.innerHTML = `
-        <div style="flex:1;overflow:hidden;min-width:0;">
-          <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            🕐 ${origTask.title}
-          </div>
-          <div style="font-size:11px;color:var(--ink3);display:flex;align-items:center;gap:6px;">
-            <span>${origTask.duration}分</span>
-            <span class="routine-badge">${repeatLabel[origTask.repeatMode]||'ルーティン'}</span>
-          </div>
-        </div>
-        <button onclick="event.stopPropagation();openRoutineManager()" title="ルーティン管理"
-          style="font-size:14px;color:var(--ink3);padding:2px 6px;flex-shrink:0;border-radius:6px;">✏️</button>`;
-    } else {
-      el.innerHTML = `${cbHTML}
+    el.innerHTML = `${cbHTML}
         <div style="flex:1;overflow:hidden;min-width:0;">
           ${parentLabel}
           <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -2705,7 +2434,6 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
           ${badgesHTML}${memoHTML}
         </div>
         ${splitBtnHTML}`;
-    }
     contentCol.appendChild(el);
   });
 
@@ -3090,79 +2818,8 @@ function applySplit() {
 }
 
 // ══════════════════════════════════════════════
-//  出勤日カレンダー
-// ══════════════════════════════════════════════
 let workdayCalMonth = new Date();
 workdayCalMonth.setDate(1);
-
-function changeWorkdayMonth(delta) {
-  workdayCalMonth.setMonth(workdayCalMonth.getMonth() + delta);
-  renderWorkdayCalendar();
-}
-
-function renderWorkdayCalendar() {
-  const year  = workdayCalMonth.getFullYear();
-  const month = workdayCalMonth.getMonth();
-  document.getElementById('workdayMonthLabel').textContent =
-    `${year}年 ${month + 1}月`;
-
-  const grid = document.getElementById('workdayCalendarGrid');
-  if (!grid) return;
-
-  const today = dateToKey(new Date());
-  const DOW_LABELS = ['日','月','火','水','木','金','土'];
-  const dowColors = ['#c62828','var(--ink3)','var(--ink3)','var(--ink3)','var(--ink3)','var(--ink3)','#1565c0'];
-  let html = DOW_LABELS.map((d, i) =>
-    `<div style="font-size:11px;font-weight:700;color:${dowColors[i]};padding:4px 0;">${d}</div>`
-  ).join('');
-
-  // 月初の曜日
-  const firstDay = new Date(year, month, 1).getDay();
-  for (let i = 0; i < firstDay; i++) html += '<div></div>';
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  for (let day = 1; day <= daysInMonth; day++) {
-    const d    = new Date(year, month, day);
-    const key  = dateToKey(d);
-    const dow  = d.getDay();
-    const isWeekend   = dow === 0 || dow === 6;
-    const isHoliday   = !!_holidayCache[key];
-    const isRegistered = !!state.workdays[key];
-    const isToday     = key === today;
-
-    let cls = 'wday-cell';
-    let title = '';
-    if (isRegistered)    { cls += ' workday-registered'; title = '出勤日（クリックで解除）'; }
-    else if (isHoliday)  { cls += ' holiday'; title = _holidayCache[key]; }
-    else if (isWeekend)  { cls += ' weekend'; title = 'クリックで出勤日登録'; }
-    if (isToday)         cls += ' today-cell';
-
-    const sub = isHoliday ? `<span style="font-size:8px;overflow:hidden;width:100%;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;">${_holidayCache[key]}</span>` : '';
-
-    html += `<div class="${cls}" title="${title}" onclick="toggleWorkday('${key}')">${day}${sub}</div>`;
-  }
-
-  grid.innerHTML = html;
-}
-
-function toggleWorkday(key) {
-  const d   = new Date(key + 'T00:00:00');
-  const dow = d.getDay();
-  // 祝日は変更不可
-  if (_holidayCache[key]) return;
-  // 平日は元々営業日なので登録不要
-  if (dow !== 0 && dow !== 6 && !state.workdays[key]) return;
-
-  if (state.workdays[key]) {
-    delete state.workdays[key];
-    showToast(`📅 ${key} を出勤日から解除しました`);
-  } else {
-    state.workdays[key] = true;
-    showToast(`✅ ${key} を出勤日として登録しました`);
-  }
-  saveToLocal();
-  renderWorkdayCalendar();
-}
 
 // ══════════════════════════════════════════════
 //  次営業日送り
@@ -3172,37 +2829,6 @@ let deferTaskId = null;
 // 祝日キャッシュ（APIから取得）
 let _holidayCache = {}; // { "YYYY-MM-DD": "祝日名" }
 let _holidayFetched = false;
-
-async function fetchHolidays() {
-  if (_holidayFetched) return;
-  try {
-    const res = await fetch('https://holidays-jp.github.io/api/v1/date.json');
-    if (res.ok) { _holidayCache = await res.json(); }
-  } catch(e) { /* オフライン時は無視 */ }
-  _holidayFetched = true;
-}
-
-function isWorkday(d) {
-  const key = dateToKey(d);
-  const dow = d.getDay();
-  // 出勤日カレンダーに登録されていれば営業日扱い
-  if (state.workdays && state.workdays[key]) return true;
-  // 祝日はスキップ
-  if (_holidayCache[key]) return false;
-  // 土日はスキップ
-  if (dow === 0 || dow === 6) return false;
-  return true;
-}
-
-function getNextWorkday(fromDate, skipCount = 1) {
-  const d = new Date(fromDate);
-  let count = 0;
-  while (count < skipCount) {
-    d.setDate(d.getDate() + 1);
-    if (isWorkday(d)) count++;
-  }
-  return d;
-}
 
 function dateToKey(d) {
   // Date → "YYYY-MM-DD"
@@ -3226,17 +2852,17 @@ function openDeferPicker(taskId) {
   const today = new Date();
   today.setHours(0,0,0,0);
 
-  // クイック選択ボタンを生成（次営業日・2営業日後・3営業日後・来週月曜）
-  const quickOptions = [
-    { label: '翌営業日', date: getNextWorkday(today, 1) },
-    { label: '2営業日後', date: getNextWorkday(today, 2) },
-    { label: '3営業日後', date: getNextWorkday(today, 3) },
-  ];
-  // 来週月曜
+  // クイック選択ボタンを生成（明日・明後日・3日後・来週）
+  const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate()+n); return r; };
   const nextMon = new Date(today);
   const daysToMon = (8 - today.getDay()) % 7 || 7;
   nextMon.setDate(today.getDate() + daysToMon);
-  quickOptions.push({ label: '来週月曜', date: nextMon });
+  const quickOptions = [
+    { label: '明日',       date: addDays(today, 1) },
+    { label: '明後日',     date: addDays(today, 2) },
+    { label: '3日後',      date: addDays(today, 3) },
+    { label: '来週月曜',   date: nextMon },
+  ];
 
   const btnsEl = document.getElementById('deferQuickBtns');
   btnsEl.innerHTML = quickOptions.map(opt => {
@@ -3253,7 +2879,8 @@ function openDeferPicker(taskId) {
   }).join('');
 
   // 日付ピッカーの初期値 = 現在のscheduledDate or 翌営業日
-  const defaultDate = task.scheduledDate || dateToKey(getNextWorkday(today, 1));
+  const addD = (d,n) => { const r=new Date(d); r.setDate(r.getDate()+n); return r; };
+  const defaultDate = task.scheduledDate || dateToKey(addD(today, 1));
   document.getElementById('deferDateInput').value = defaultDate;
 
   document.getElementById('deferOverlay').style.display = 'flex';
@@ -3370,9 +2997,7 @@ function toggleLaterAddBar() {
   if (!isOpen) {
     // プロジェクト候補を更新
     const dl = document.getElementById('later-add-proj-list');
-    const names = state.projects.length > 0
-      ? state.projects.map(p => p.name)
-      : [...new Set(state.tasks.map(t => t.project).filter(Boolean))];
+    const names = [...new Set(state.tasks.map(t => t.project).filter(Boolean))];
     if (dl) dl.innerHTML = names.map(n => `<option value="${n}">`).join('');
     setTimeout(() => document.getElementById('laterAddTitle').focus(), 50);
   }
@@ -3688,110 +3313,6 @@ let editingProjectId = null;
 
 const STATUS_LABEL = { active: '進行中', hold: '保留', done: '完了' };
 
-function renderProjectList() {
-  const container = document.getElementById('project-list');
-  if (!container) return;
-  if (state.projects.length === 0) {
-    container.innerHTML = '<div style="text-align:center;color:var(--ink4);padding:40px;font-size:13px;">プロジェクトがありません<br>右上の「＋ 追加」から作成してください</div>';
-    return;
-  }
-  container.innerHTML = state.projects.map(p => {
-    const taskCount = state.tasks.filter(t => t.project === p.name).length;
-    const deadlineStr = p.deadline ? `<span style="font-size:11px;color:var(--ink3);">期限: ${p.deadline}</span>` : '';
-    const assigneeStr = p.assignee ? `<span style="font-size:11px;color:var(--ink3);">担当: ${p.assignee}</span>` : '';
-    return `
-    <div class="proj-card" onclick="openProjectEdit('${p.id}')">
-      <div class="proj-color-dot" style="background:${p.color||'#ccc'};"></div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:3px;align-items:center;">
-          ${assigneeStr}${deadlineStr}
-          <span style="font-size:11px;color:var(--ink3);">${taskCount}件のタスク</span>
-        </div>
-      </div>
-      <span class="proj-status-badge ${p.status||'active'}">${STATUS_LABEL[p.status||'active']}</span>
-    </div>`;
-  }).join('');
-}
-
-function openProjectEdit(id) {
-  editingProjectId = id;
-  const isNew = !id;
-  document.getElementById('projectEditTitle').textContent = isNew ? 'プロジェクトを追加' : 'プロジェクトを編集';
-  document.getElementById('projDeleteBtn').style.display  = isNew ? 'none' : 'block';
-
-  if (!isNew) {
-    const p = state.projects.find(p => p.id === id);
-    if (!p) return;
-    document.getElementById('projEditName').value     = p.name     || '';
-    document.getElementById('projEditAssignee').value = p.assignee || '';
-    document.getElementById('projEditStatus').value   = p.status   || 'active';
-    document.getElementById('projEditDeadline').value = p.deadline || '';
-    document.getElementById('projEditMemo').value     = p.memo     || '';
-    // 色スウォッチ選択状態を更新
-    document.querySelectorAll('.color-swatch').forEach(s => {
-      s.classList.toggle('selected', s.dataset.color === (p.color || '#2d7a4f'));
-    });
-  } else {
-    document.getElementById('projEditName').value     = '';
-    document.getElementById('projEditAssignee').value = '';
-    document.getElementById('projEditStatus').value   = 'active';
-    document.getElementById('projEditDeadline').value = '';
-    document.getElementById('projEditMemo').value     = '';
-    document.querySelectorAll('.color-swatch').forEach((s,i) => s.classList.toggle('selected', i===0));
-  }
-  document.getElementById('projectEditOverlay').style.display = 'flex';
-}
-
-function closeProjectEdit() {
-  document.getElementById('projectEditOverlay').style.display = 'none';
-  editingProjectId = null;
-}
-
-function selectProjectColor(el) {
-  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
-  el.classList.add('selected');
-}
-
-function saveProjectEdit() {
-  const name     = document.getElementById('projEditName').value.trim();
-  if (!name) { showToast('プロジェクト名を入力してください'); return; }
-  const color    = document.querySelector('.color-swatch.selected')?.dataset.color || '#2d7a4f';
-  const assignee = document.getElementById('projEditAssignee').value.trim() || undefined;
-  const status   = document.getElementById('projEditStatus').value || 'active';
-  const deadline = document.getElementById('projEditDeadline').value || undefined;
-  const memo     = document.getElementById('projEditMemo').value.trim() || undefined;
-
-  if (editingProjectId) {
-    const p = state.projects.find(p => p.id === editingProjectId);
-    if (p) { Object.assign(p, {name, color, assignee, status, deadline, memo}); }
-  } else {
-    state.projects.push({ id: String(Date.now()), name, color, assignee, status, deadline, memo });
-  }
-  saveState();
-  closeProjectEdit();
-  renderProjectList();
-  showToast('✅ プロジェクトを保存しました');
-  // datalist 更新
-  const allProjects = [...new Set(state.projects.map(p=>p.name))];
-  ['project-suggestions','add-project-suggestions'].forEach(id => {
-    const dl = document.getElementById(id);
-    if (dl) dl.innerHTML = allProjects.map(p=>`<option value="${p}">`).join('');
-  });
-}
-
-function deleteProject() {
-  if (!editingProjectId) return;
-  const p = state.projects.find(p => p.id === editingProjectId);
-  if (!confirm(`「${p?.name}」を削除しますか？
-タスクのプロジェクト設定は残ります。`)) return;
-  state.projects = state.projects.filter(p => p.id !== editingProjectId);
-  saveState();
-  closeProjectEdit();
-  renderProjectList();
-  showToast('🗑 プロジェクトを削除しました');
-}
-
 
 
 // ══════════════════════════════════════════════
@@ -3850,7 +3371,7 @@ function quickInsertTask() {
     const dayTasks = state.tasks.filter(t => isTaskForToday(t, currentDayOffset) && t.id !== newTask.id);
     const laterTasks = dayTasks.filter(t => {
       const s = getTaskStart(t, currentDayOffset);
-      return s >= nowMin && !(t.isWorkStart || t.isWorkEnd) && t.taskType !== 'event';
+      return s >= nowMin && !(t.isWakeUp || t.isSleep) && t.taskType !== 'event';
     });
     laterTasks.forEach(t => {
       const origStart = getTaskStart(t, currentDayOffset);
@@ -3885,7 +3406,7 @@ function openInsertDialog(task, startMin) {
   const dayTasks = state.tasks.filter(t => isTaskForToday(t, currentDayOffset) && t !== task);
   const laterTasks = dayTasks.filter(t => {
     const s = getTaskStart(t, currentDayOffset);
-    return s >= startMin && !(t.isWorkStart || t.isWorkEnd) && t.taskType !== 'event';
+    return s >= startMin && !(t.isWakeUp || t.isSleep) && t.taskType !== 'event';
   });
 
   const shiftMin = task.duration;
@@ -3962,9 +3483,7 @@ function setTaskType(type) {
     taskBtn.style.background  = 'white'; taskBtn.style.color = 'var(--green)'; taskBtn.style.borderColor = 'var(--border)';
   }
   // プロジェクト候補を datalist に追加（登録済みプロジェクト名を優先）
-  const projNames = state.projects.length > 0
-    ? state.projects.map(p=>p.name)
-    : [...new Set(state.tasks.map(t=>t.project).filter(Boolean))];
+  const projNames = [...new Set(state.tasks.map(t=>t.project).filter(Boolean))];
   ['add-project-suggestions','project-suggestions'].forEach(id => {
     const dl = document.getElementById(id);
     if (dl) dl.innerHTML = projNames.map(p=>`<option value="${p}">`).join('');
@@ -3997,8 +3516,8 @@ function addTask() {
     document.querySelectorAll('#customDays input:checked').forEach(i => customDays.push(parseInt(i.value)));
   }
 
-  const isWorkStart = title.includes('業務開始');
-  const isWorkEnd   = title.includes('定時');
+  const isWakeUp = title.includes('起床');
+  const isSleep   = title.includes('就寝');
   const taskType  = document.getElementById('taskType').value || 'task';
   const project   = document.getElementById('addProject').value.trim() || undefined;
   const priority  = document.getElementById('addPriority').value || undefined;
@@ -4009,8 +3528,8 @@ function addTask() {
     ...(project   ? {project}   : {}),
     ...(priority  ? {priority}  : {}),
     ...(todayFlag ? {todayFlag: true} : {}),
-    ...(isWorkStart ? {isWorkStart: true} : {}),
-    ...(isWorkEnd   ? {isWorkEnd: true}   : {}) };
+    ...(isWakeUp ? {isWakeUp: true} : {}),
+    ...(isSleep   ? {isSleep: true}   : {}) };
 
   if (placement === 'timeline') {
     const ah = parseInt(document.getElementById('addTimeH')?.value) || 8;
@@ -4103,28 +3622,24 @@ function showCompletionToast(title, elapsed, extra, type) {
 
 function switchTab(tab) {
   const app = document.getElementById('app');
-  app.classList.remove('show-later', 'show-input', 'show-report', 'show-project');
+  app.classList.remove('show-later', 'show-input', 'show-report', 'show-settings');
   const btns = document.querySelectorAll('.tab-btn');
   btns.forEach(b => b.classList.remove('active'));
   // PC navのアクティブ状態
-  const pcMap = { main:'pcNavMain', later:'pcNavLater', input:'pcNavInput', project:'pcNavProject', report:'pcNavReport', settings:'pcNavSettings' };
+  const pcMap = { main:'pcNavMain', later:'pcNavLater', input:'pcNavInput', report:'pcNavReport', settings:'pcNavSettings' };
   document.querySelectorAll('.pc-nav-btn').forEach(b => b.classList.remove('active'));
   const pcBtn = document.getElementById(pcMap[tab] || 'pcNavMain');
   if (pcBtn) pcBtn.classList.add('active');
 
-  if (tab === 'later')        { app.classList.add('show-later');   btns[1].classList.add('active'); }
-  else if (tab === 'input')   { app.classList.add('show-input');   btns[2].classList.add('active'); }
-  else if (tab === 'project') {
-    app.classList.add('show-project'); btns[3].classList.add('active');
-    renderProjectList();
-  }
+  if (tab === 'later')        { app.classList.add('show-later');    btns[1].classList.add('active'); }
+  else if (tab === 'input')   { app.classList.add('show-input');    btns[2].classList.add('active'); }
   else if (tab === 'report')  {
-    app.classList.add('show-report'); btns[4].classList.add('active');
+    app.classList.add('show-report');   btns[3].classList.add('active');
     renderReport();
   }
   else if (tab === 'settings') {
-    app.classList.add('show-settings');
-    renderWorkdayCalendar();
+    app.classList.add('show-settings'); btns[4].classList.add('active');
+    loadSettingsValues();
   }
   else { btns[0].classList.add('active'); }
 }
@@ -4152,7 +3667,7 @@ function openEdit(id) {
     document.getElementById('moveLaterBtn').style.display = 'block';
     document.getElementById('moveLaterBtn').textContent = task.repeatMode !== 'none' ? '「あとで」に移動' : '「あとで」に戻す';
     // タイムライン上のタスクは分割ボタンを表示（isWorkBoundary以外）
-    const _isWB = !!(task.isWorkStart || task.isWorkEnd);
+    const _isWB = !!(task.isWakeUp || task.isSleep);
     document.getElementById('splitFromEditBtn').style.display = _isWB ? 'none' : 'block';
     document.getElementById('editNotifyBox').style.display = 'block';
   } else {
@@ -4521,234 +4036,205 @@ function getWeekDayOffsets(weekOffset) {
 function renderReport() {
   const offsets = getWeekDayOffsets(reportWeekOffset);
   const today = new Date();
-
-  // 週ラベル
   const mon = new Date(today); mon.setDate(today.getDate() + offsets[0]);
   const sun = new Date(today); sun.setDate(today.getDate() + offsets[6]);
   document.getElementById('reportWeekLabel').textContent =
     `${mon.getMonth()+1}/${mon.getDate()}（月）〜 ${sun.getMonth()+1}/${sun.getDate()}（日）`;
 
-  renderHabitTracker(offsets);
-  renderTimeGraph(offsets);
+  renderWeekTaskDone(offsets);
+  renderFocusTimeGraph(offsets);
   renderWeeklyReview(offsets);
 }
 
-function renderHabitTracker(offsets) {
-  const today = new Date();
-  const todayOffset = 0;
+// ── 今週の達成タスク数（曜日別バー）──
+function renderWeekTaskDone(offsets) {
   const DAYS = ['月','火','水','木','金','土','日'];
+  const counts = offsets.map(off => {
+    const dayTasks = state.tasks.filter(t => isTaskForToday(t, off) && !t.isWakeUp && !t.isSleep);
+    const done = dayTasks.filter(t => t.doneDates.includes(offsetToDateKey(off))).length;
+    return { done, total: dayTasks.length, isFuture: off > 0 };
+  });
 
-  // 繰り返しタスクのみ対象
-  const habitTasks = state.tasks.filter(t => t.repeatMode !== 'none');
-  if (habitTasks.length === 0) {
-    document.getElementById('habitTracker').innerHTML =
-      '<div style="color:var(--ink4);font-size:13px;text-align:center;padding:12px;">繰り返しタスクがありません</div>';
-    return;
-  }
+  const maxDone = Math.max(...counts.map(c => c.done), 1);
+  const totalDoneWeek = counts.reduce((s,c) => s + c.done, 0);
 
-  const html = habitTasks.map(task => {
-    let doneCount = 0, plannedCount = 0;
-    const dots = offsets.map((off, i) => {
-      // この日にこのタスクが予定されているか
-      const planned = isRepeatMatchDay(task, off) &&
-        !(task.deletedDates && task.deletedDates.includes(off));
-      const done = task.doneDates.includes(offsetToDateKey(off));
-      const isFuture = off > todayOffset;
-
-      if (planned) plannedCount++;
-      if (planned && done) doneCount++;
-
-      const dayLabel = DAYS[i];
-      if (!planned) return `<div class="habit-dot noplan">${dayLabel}</div>`;
-      if (isFuture) return `<div class="habit-dot future">${dayLabel}</div>`;
-      if (done)     return `<div class="habit-dot done">✓</div>`;
-      return `<div class="habit-dot missed">${dayLabel}</div>`;
-    }).join('');
-
-    const pct = plannedCount > 0 ? Math.round(doneCount / plannedCount * 100) : 0;
-    return `
-      <div class="habit-row">
-        <div class="habit-title" title="${task.title}">${task.title}</div>
-        <div class="habit-dots">${dots}</div>
-        <div class="habit-pct">${pct}%</div>
-      </div>`;
+  const bars = counts.map((c, i) => {
+    const pct = Math.round(c.done / maxDone * 100);
+    const isToday = offsets[i] === 0;
+    const color = isToday ? 'var(--green)' : c.isFuture ? 'var(--bg3)' : 'var(--green-dim)';
+    return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px;">
+      <div style="font-size:11px;font-weight:700;color:var(--ink2);">${c.isFuture ? '' : c.done}</div>
+      <div style="width:100%;background:var(--bg2);border-radius:6px;height:60px;display:flex;align-items:flex-end;overflow:hidden;">
+        <div style="width:100%;height:${pct}%;background:${color};border-radius:6px 6px 0 0;transition:height 0.3s;min-height:${c.done>0?4:0}px;"></div>
+      </div>
+      <div style="font-size:11px;color:${isToday?'var(--green)':'var(--ink3)'};font-weight:${isToday?'700':'400'};">${DAYS[i]}</div>
+    </div>`;
   }).join('');
 
-  document.getElementById('habitTracker').innerHTML = html;
+  document.getElementById('weekTaskDone').innerHTML = `
+    <div style="font-size:24px;font-weight:800;color:var(--green);margin-bottom:4px;">${totalDoneWeek}<span style="font-size:13px;font-weight:400;color:var(--ink3);margin-left:4px;">タスク達成</span></div>
+    <div style="display:flex;gap:4px;align-items:flex-end;margin-top:12px;">${bars}</div>`;
 }
 
-function renderTimeGraph(offsets) {
-  // タスク別の合計時間（完了済みのみ）
-  const taskTimes = {};
+// ── 集中しやすい時間帯（完了タスクの開始時間帯を時間ごとに集計）──
+function renderFocusTimeGraph(offsets) {
+  // 過去90日間のデータから集計
+  const HOURS = Array.from({length: 17}, (_, i) => i + 6); // 6〜22時
+  const hourCounts = {};
+  HOURS.forEach(h => hourCounts[h] = 0);
 
-  offsets.forEach(off => {
-    const dayTasks = state.tasks.filter(t => isTaskForToday(t, off));
+  // 過去データ（表示中の週 + 過去90日）
+  const allOffsets = [];
+  for (let d = -90; d <= 0; d++) allOffsets.push(d);
+
+  allOffsets.forEach(off => {
+    const dayTasks = state.tasks.filter(t => isTaskForToday(t, off) && !t.isWakeUp && !t.isSleep);
     dayTasks.forEach(task => {
       if (!task.doneDates.includes(offsetToDateKey(off))) return;
-      if (!taskTimes[task.title]) taskTimes[task.title] = 0;
-      taskTimes[task.title] += task.duration;
+      const start = getTaskStart(task, off);
+      if (start == null) return;
+      const h = Math.floor(start / 60);
+      if (h >= 6 && h <= 22) hourCounts[h] = (hourCounts[h] || 0) + 1;
     });
   });
 
-  const entries = Object.entries(taskTimes).sort((a,b) => b[1]-a[1]);
-  if (entries.length === 0) {
-    document.getElementById('timeGraph').innerHTML =
-      '<div style="color:var(--ink4);font-size:13px;text-align:center;padding:12px;">完了済みタスクがありません</div>';
+  const entries = HOURS.map(h => [h, hourCounts[h] || 0]);
+  const maxCount = Math.max(...entries.map(([,c]) => c), 1);
+  const total = entries.reduce((s,[,c]) => s+c, 0);
+
+  if (total === 0) {
+    document.getElementById('focusTimeGraph').innerHTML =
+      '<div style="color:var(--ink4);font-size:12px;text-align:center;padding:16px;">タスクを完了すると集中時間帯が分析されます</div>';
     return;
   }
 
-  const maxMin = entries[0][1];
-  const totalMin = entries.reduce((s,[,m]) => s+m, 0);
-  const totalH = Math.floor(totalMin/60), totalM = totalMin%60;
+  // 上位3時間帯を見つける
+  const sorted = [...entries].sort((a,b) => b[1]-a[1]);
+  const top3 = sorted.slice(0,3).filter(([,c])=>c>0).map(([h])=>h);
 
-  const bars = entries.map(([title, min]) => {
-    const h = Math.floor(min/60), m = min%60;
-    const label = h > 0 ? `${h}h${m>0?m+'m':''}` : `${m}m`;
-    const pct = Math.round(min/maxMin*100);
-    return `
-      <div class="bar-row">
-        <div class="bar-label" title="${title}">${title}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-        <div class="bar-val">${label}</div>
-      </div>`;
+  const bars = entries.map(([h, count]) => {
+    const pct = Math.round(count / maxCount * 100);
+    const isTop = top3.includes(h);
+    const color = isTop ? 'var(--green)' : count > 0 ? 'var(--green-dim)' : 'var(--bg2)';
+    const nowH = new Date().getHours();
+    const isNow = h === nowH;
+    return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:2px;">
+      <div style="width:100%;background:var(--bg2);border-radius:4px 4px 0 0;height:48px;display:flex;align-items:flex-end;overflow:hidden;${isNow?'outline:2px solid var(--now-line);outline-offset:-1px;border-radius:4px;':''}">
+        <div style="width:100%;height:${pct}%;background:${color};border-radius:4px 4px 0 0;min-height:${count>0?3:0}px;"></div>
+      </div>
+      <div style="font-size:9px;color:${isTop?'var(--green)':'var(--ink4)'};font-weight:${isTop?'700':'400'};writing-mode:vertical-rl;transform:rotate(180deg);height:20px;text-align:center;">${h}</div>
+    </div>`;
   }).join('');
 
-  document.getElementById('timeGraph').innerHTML =
-    `<div style="font-size:11px;color:var(--ink3);margin-bottom:10px;">合計: ${totalH}時間${totalM}分</div>` + bars;
+  const topStr = top3.length > 0
+    ? top3.map(h => `${h}〜${h+1}時`).join('・')
+    : '—';
+
+  document.getElementById('focusTimeGraph').innerHTML = `
+    <div style="background:rgba(45,122,79,0.06);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:20px;">🎯</span>
+      <div>
+        <div style="font-size:11px;color:var(--ink3);">集中のゴールデンタイム</div>
+        <div style="font-size:15px;font-weight:800;color:var(--green);">${topStr}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:2px;align-items:flex-end;">${bars}</div>`;
 }
 
 function renderWeeklyReview(offsets) {
-  const today = new Date();
-  let totalTasks = 0, doneTasks = 0, totalMin = 0, doneMin = 0;
-  let bestDay = null, bestDayCount = 0;
   const DAYS = ['月','火','水','木','金','土','日'];
+  let totalTasks = 0, doneTasks = 0, doneMin = 0;
+  let bestDay = null, bestDayCount = 0;
 
   offsets.forEach((off, i) => {
-    if (off > 0) return; // 未来は除く
-    const dayTasks = state.tasks.filter(t => isTaskForToday(t, off));
+    if (off > 0) return;
+    const dayTasks = state.tasks.filter(t => isTaskForToday(t, off) && !t.isWakeUp && !t.isSleep);
     const dayDone = dayTasks.filter(t => t.doneDates.includes(offsetToDateKey(off)));
     totalTasks += dayTasks.length;
     doneTasks  += dayDone.length;
-    totalMin   += dayTasks.reduce((s,t) => s+t.duration, 0);
     doneMin    += dayDone.reduce((s,t) => s+t.duration, 0);
-    if (dayDone.length > bestDayCount) {
-      bestDayCount = dayDone.length;
-      bestDay = DAYS[i];
-    }
+    if (dayDone.length > bestDayCount) { bestDayCount = dayDone.length; bestDay = DAYS[i]; }
   });
 
-  const completionRate = totalTasks > 0 ? Math.round(doneTasks/totalTasks*100) : 0;
+  const rate = totalTasks > 0 ? Math.round(doneTasks/totalTasks*100) : 0;
   const doneH = Math.floor(doneMin/60), doneM = doneMin%60;
   const doneTimeStr = doneH > 0 ? `${doneH}時間${doneM>0?doneM+'分':''}` : `${doneM}分`;
 
   document.getElementById('weeklyReview').innerHTML = `
-    <div class="review-stat">
-      <span class="review-stat-label">タスク完了率</span>
-      <span class="review-stat-val">${completionRate}%</span>
-    </div>
-    <div class="review-stat">
-      <span class="review-stat-label">完了タスク数</span>
-      <span class="review-stat-val">${doneTasks} / ${totalTasks}</span>
-    </div>
-    <div class="review-stat">
-      <span class="review-stat-label">こなした時間</span>
-      <span class="review-stat-val">${doneTimeStr}</span>
-    </div>
-    <div class="review-stat">
-      <span class="review-stat-label">最も達成した曜日</span>
-      <span class="review-stat-val">${bestDay ? bestDay+'曜日' : '—'}</span>
-    </div>`;
-
+    <div class="review-stat"><span class="review-stat-label">完了率</span><span class="review-stat-val">${rate}%</span></div>
+    <div class="review-stat"><span class="review-stat-label">達成タスク</span><span class="review-stat-val">${doneTasks} / ${totalTasks}</span></div>
+    <div class="review-stat"><span class="review-stat-label">こなした時間</span><span class="review-stat-val">${doneTimeStr}</span></div>
+    <div class="review-stat"><span class="review-stat-label">最も頑張った曜日</span><span class="review-stat-val">${bestDay ? bestDay+'曜日' : '—'}</span></div>`;
 }
+
 
 // ══════════════════════════════════════════════
-//  ルーティン時間帯ブロック管理
+//  設定
 // ══════════════════════════════════════════════
-
-function getRoutinesForDay(offset) {
-  const d = new Date(); d.setDate(d.getDate() + offset);
-  const dow = d.getDay();
-  return state.routines.filter(r => {
-    if (r.repeat === 'daily')   return true;
-    if (r.repeat === 'weekday') return dow >= 1 && dow <= 5;
-    if (r.repeat === 'weekend') return dow === 0 || dow === 6;
-    return false;
-  });
-}
-
-function openRoutineManager() {
-  renderRoutineList();
-  // セレクト初期化（未初期化の場合のみ）
-  const sh = document.getElementById('routineStartH');
-  const sm = document.getElementById('routineStartM');
-  if (sh && sh.options.length === 0) {
-    for (let i = 0; i < 24; i++) {
-      const o = document.createElement('option'); o.value = i; o.textContent = String(i).padStart(2,'0'); sh.appendChild(o);
-    }
-    [0,5,10,15,20,25,30,35,40,45,50,55].forEach(m => {
-      const o = document.createElement('option'); o.value = m; o.textContent = String(m).padStart(2,'0'); sm.appendChild(o);
-    });
+function loadSettingsValues() {
+  const wake = state.tasks.find(t => t.isWakeUp);
+  const sleep = state.tasks.find(t => t.isSleep);
+  if (wake) {
+    const h = String(Math.floor((wake.start || 420) / 60)).padStart(2,'0');
+    const m = String((wake.start || 420) % 60).padStart(2,'0');
+    const el = document.getElementById('settingWakeTime');
+    if (el) el.value = `${h}:${m}`;
   }
-  // 現在時刻をデフォルトに
-  const now = new Date();
-  if (sh) sh.value = now.getHours();
-  if (sm) sm.value = Math.round(now.getMinutes() / 5) * 5 % 60;
-  document.getElementById('routineOverlay').style.display = 'flex';
-}
-
-function closeRoutineManager() {
-  document.getElementById('routineOverlay').style.display = 'none';
-}
-
-function renderRoutineList() {
-  const container = document.getElementById('routineList');
-  if (!state.routines.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--ink4);font-size:13px;padding:12px 0;">ルーティンがまだありません</div>';
-    return;
+  if (sleep) {
+    const h = String(Math.floor((sleep.start || 1380) / 60)).padStart(2,'0');
+    const m = String((sleep.start || 1380) % 60).padStart(2,'0');
+    const el = document.getElementById('settingSleepTime');
+    if (el) el.value = `${h}:${m}`;
   }
-  const repeatLabel = { daily:'毎日', weekday:'平日（月〜金）', weekend:'休日（土・日）' };
-  container.innerHTML = state.routines.map(r => {
-    const hStr = String(r.startH).padStart(2,'0');
-    const mStr = String(r.startM).padStart(2,'0');
-    const endMin = r.startH * 60 + r.startM + r.duration;
-    const eH = Math.floor(endMin/60), eM = endMin%60;
-    const endStr = `${String(eH).padStart(2,'0')}:${String(eM).padStart(2,'0')}`;
-    return `<div class="routine-item">
-      <div class="routine-item-info">
-        <div class="routine-item-title">🕐 ${r.title}</div>
-        <div class="routine-item-sub">${hStr}:${mStr}〜${endStr}（${r.duration}分）・${repeatLabel[r.repeat]||r.repeat}</div>
-      </div>
-      <button onclick="deleteRoutine(${r.id})"
-        style="font-size:18px;color:var(--ink4);padding:4px 8px;border-radius:8px;flex-shrink:0;">🗑</button>
-    </div>`;
-  }).join('');
 }
 
-function addRoutine() {
-  const title = document.getElementById('routineTitle').value.trim();
-  const startH = parseInt(document.getElementById('routineStartH').value) || 0;
-  const startM = parseInt(document.getElementById('routineStartM').value) || 0;
-  const dur    = parseInt(document.getElementById('routineDur').value)    || 30;
-  const repeat = document.getElementById('routineRepeat').value;
-  if (!title) { document.getElementById('routineTitle').focus(); return; }
-  state.routines.push({ id: Date.now(), title, startH, startM, duration: dur, repeat });
-  document.getElementById('routineTitle').value = '';
-  saveToLocal();
-  renderRoutineList();
+function updateBoundaryTime(type, value) {
+  const [h, m] = value.split(':').map(Number);
+  const min = h * 60 + m;
+  if (type === 'wake') {
+    const task = state.tasks.find(t => t.isWakeUp);
+    if (task) { task.start = min; }
+  } else {
+    const task = state.tasks.find(t => t.isSleep);
+    if (task) { task.start = min; }
+  }
+  saveState();
   renderAll();
-  showToast(`🕐「${title}」をルーティンに追加しました`);
+  showToast('✅ 時間を更新しました');
 }
 
-function deleteRoutine(id) {
-  state.routines = state.routines.filter(r => r.id !== id);
-  saveToLocal();
-  renderRoutineList();
-  renderAll();
+function exportData() {
+  const data = JSON.stringify({ tasks: state.tasks }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `ejector_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast('📤 エクスポートしました');
 }
 
-function openRoutineEditInline(routineId) {
-  // ルーティンブロックをタップ → 管理画面を開く
-  openRoutineManager();
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.tasks) {
+          if (!confirm('現在のデータを上書きしますか？')) return;
+          state.tasks = data.tasks;
+          saveState();
+          renderAll();
+          showToast('📥 インポートしました');
+        }
+      } catch { showToast('❌ ファイルの読み込みに失敗しました'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 // ══════════════════════════════════════════════
@@ -5037,7 +4523,6 @@ window.onload = async () => {
   }
 
   loadFromLocal();
-  fetchHolidays(); // 祝日データを非同期取得
   // 追加フォームの時刻を初期化
   setTimeout(() => {
     const now = new Date();
@@ -5049,7 +4534,7 @@ window.onload = async () => {
     if (addM) addM.value = m;
   }, 100);
   migrateTaskDates(); // 旧データを絶対日付キーに変換
-  migrateWorkBoundaryTitles(); // 起床/就寝 → 業務開始/定時
+  migrateWorkBoundaryTitles(); // 業務開始/定時 → 起床/就寝
   loadSyncConfig();
 
   if (syncCfg.workerUrl) {
