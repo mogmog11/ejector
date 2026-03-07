@@ -4824,6 +4824,18 @@ function autoSchedule() {
     if (t.taskType === 'event') return false;
     if (t.isWakeUp || t.isSleep) return false;
     if (t.scheduledDate && dk < t.scheduledDate) return false;
+    // 作成日が今日より未来のタスクは除外（明日以降に追加されたもの）
+    const created = t.createdOffset !== undefined ? t.createdOffset : 0;
+    if (dk < created) return false;
+    // 繰り返しタスクは今日の曜日に合致しないものを除外
+    if (t.repeatMode !== 'none') {
+      if (!isRepeatMatchDay(t, currentDayOffset)) return false;
+      const hasTodayCopy = state.tasks.some(other =>
+        other.repeatMode === 'none' && other.allocated &&
+        other.allocatedOffset === dk && other.title === t.title
+      );
+      if (hasTodayCopy) return false;
+    }
     return true;
   }).sort((a, b) => {
     // 締切が早い順 → todayFlag → 優先度 → 所要時間（短い順）
