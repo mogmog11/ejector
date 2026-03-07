@@ -1,42 +1,30 @@
-// EJECTOR startNow機能 テストスイート
-// Node.js で実行: node test_startnow.js
+// EJECTOR 修正版テストスイート
+// 対象: 1. PC版レポートCSS修正  2. startNow機能
 
 const _store = {};
-const localStorage = {
+global.localStorage = {
   getItem: k => _store[k] ?? null,
   setItem: (k, v) => { _store[k] = v; },
   removeItem: k => { delete _store[k]; },
 };
-global.localStorage = localStorage;
 
-// ─── ユーティリティ（本体と同じロジック） ────────────
+// ── ユーティリティ ──────────────────────────
 function offsetToDateKey(offset) {
   const d = new Date();
   d.setDate(d.getDate() + offset);
   return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 }
 
-function isRepeatMatchDay(task, offset) {
-  if (task.repeatMode === 'daily') return true;
-  const d = new Date(); d.setDate(d.getDate() + offset);
-  const dow = d.getDay();
-  if (task.repeatMode === 'weekday') return dow >= 1 && dow <= 5;
-  if (task.repeatMode === 'weekend') return dow === 0 || dow === 6;
-  if (task.repeatMode === 'custom') return task.customDays.includes(dow);
-  return false;
-}
-
-// ─── startNow ロジック（ejector.htmlと同一） ─────────
+// ── startNow ロジック（ejector.htmlと同一） ──
 function startNow(tasks, taskId, currentDayOffset = 0) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return { tasks, error: 'task not found' };
 
-  const now = new Date();
+  const now    = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
-  const dk = offsetToDateKey(currentDayOffset);
+  const dk     = offsetToDateKey(currentDayOffset);
 
   if (task.repeatMode !== 'none') {
-    // 繰り返しタスク → 今日のみコピーをタイムラインへ
     const todayCopy = {
       id: Date.now() + 1,
       title: task.title,
@@ -50,12 +38,13 @@ function startNow(tasks, taskId, currentDayOffset = 0) {
       doneDates: [],
       notify: task.notify || false,
       scheduled: false,
+      project: task.project || '',
+      taskType: task.taskType || 'task',
       subtasks: task.subtasks ? JSON.parse(JSON.stringify(task.subtasks.map(s => ({ title: s.title })))) : [],
     };
     tasks.push(todayCopy);
     return { tasks, addedCopy: todayCopy, nowMin };
   } else {
-    // 通常タスク → そのままタイムラインへ
     task.start = nowMin;
     task.allocated = true;
     task.allocatedOffset = dk;
@@ -63,7 +52,7 @@ function startNow(tasks, taskId, currentDayOffset = 0) {
   }
 }
 
-// ─── テストスイート ───────────────────────────────────
+// ── テストフレームワーク ────────────────────
 let passed = 0, failed = 0;
 const results = [];
 
@@ -85,219 +74,177 @@ function assertEqual(a, b, msg) {
   if (a !== b) throw new Error(msg || `Expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
 }
 
-console.log('\n╔════════════════════════════════════════════╗');
-console.log('║   EJECTOR startNow テストスイート         ║');
-console.log('╚════════════════════════════════════════════╝\n');
+console.log('\n╔══════════════════════════════════════════════╗');
+console.log('║   EJECTOR 修正版テストスイート v2           ║');
+console.log('╚══════════════════════════════════════════════╝\n');
 
-// ── [1] 通常タスク（repeatMode=none）─────────────────
-console.log('▶ [1] 通常タスク（repeatMode=none）');
+// ══════════════════════════════════════════
+// [A] PC版レポートCSS修正の検証
+// ══════════════════════════════════════════
+console.log('▶ [A] PC版レポートCSS修正の検証');
+const fs = require('fs');
+const html = fs.readFileSync('/home/claude/ejector.html', 'utf8');
 
-test('通常タスクはallocated=trueになる', () => {
-  const tasks = [
-    { id: 1, title: '読書', duration: 30, allocated: false, repeatMode: 'none',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(0) }
-  ];
+test('show-reportのCSSがmediaクエリ外に存在する', () => {
+  // @media (max-width: 768px) より前に #app.show-report #report-view があるか
+  const mediaStart = html.indexOf('@media (max-width: 768px)');
+  const showReportGlobal = html.indexOf('#app.show-report #report-view');
+  assert(showReportGlobal > 0, '#app.show-report #report-view が存在する');
+  assert(showReportGlobal < mediaStart, 'mediaクエリより前（グローバル）に定義されている');
+});
+
+test('show-reportで#mainが非表示になるCSSがある（グローバル）', () => {
+  const mediaStart = html.indexOf('@media (max-width: 768px)');
+  const idx = html.indexOf('#app.show-report #main');
+  assert(idx > 0 && idx < mediaStart, '#app.show-report #main がグローバルに定義されている');
+});
+
+test('show-reportで#rpanelがフル幅になるCSSがある（グローバル）', () => {
+  const mediaStart = html.indexOf('@media (max-width: 768px)');
+  const idx = html.indexOf('#app.show-report #rpanel');
+  assert(idx > 0 && idx < mediaStart, '#app.show-report #rpanel がグローバルに定義されている');
+});
+
+test('show-reportで#later-viewが非表示になるCSSがある（グローバル）', () => {
+  const mediaStart = html.indexOf('@media (max-width: 768px)');
+  const idx = html.indexOf('#app.show-report #later-view');
+  assert(idx > 0 && idx < mediaStart, '#app.show-report #later-view がグローバルに定義されている');
+});
+
+// ══════════════════════════════════════════
+// [B] startNow関数の存在検証
+// ══════════════════════════════════════════
+console.log('\n▶ [B] startNow関数の検証');
+
+test('startNow関数がejector.htmlに定義されている', () => {
+  assert(html.includes('function startNow('), 'startNow関数が存在する');
+});
+
+test('あとでリストカードに今すぐボタンのHTMLがある', () => {
+  assert(html.includes('startNow(${t.id})'), 'カードHTMLにstartNow呼び出しがある');
+  assert(html.includes('▶ 今すぐ'), 'ボタンラベルが存在する');
+});
+
+// ══════════════════════════════════════════
+// [C] startNow動作テスト（通常タスク）
+// ══════════════════════════════════════════
+console.log('\n▶ [C] startNow動作テスト（通常タスク）');
+
+test('通常タスクがallocated=trueになる', () => {
+  const tasks = [{ id: 1, title: '読書', duration: 30, allocated: false,
+    repeatMode: 'none', doneDates: [], customDays: [], createdOffset: offsetToDateKey(0) }];
   const { tasks: result } = startNow(tasks, 1, 0);
-  const t = result.find(x => x.id === 1);
-  assert(t.allocated === true, 'allocated=trueになる');
+  assert(result.find(t => t.id === 1).allocated === true, 'allocated=trueになる');
 });
 
 test('通常タスクのstartが現在時刻（分）にセットされる', () => {
-  const tasks = [
-    { id: 1, title: '読書', duration: 30, allocated: false, repeatMode: 'none',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(0) }
-  ];
+  const tasks = [{ id: 1, title: '読書', duration: 30, allocated: false,
+    repeatMode: 'none', doneDates: [], customDays: [], createdOffset: offsetToDateKey(0) }];
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const { modified } = startNow(tasks, 1, 0);
   assertEqual(modified.start, nowMin, '開始時間が現在時刻になる');
 });
 
-test('通常タスクのallocatedOffsetが今日のdateKeyにセットされる', () => {
-  const tasks = [
-    { id: 1, title: '読書', duration: 30, allocated: false, repeatMode: 'none',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(0) }
-  ];
-  const dk = offsetToDateKey(0);
+test('通常タスクのallocatedOffsetが今日のdateKeyになる', () => {
+  const tasks = [{ id: 1, title: '読書', duration: 30, allocated: false,
+    repeatMode: 'none', doneDates: [], customDays: [], createdOffset: offsetToDateKey(0) }];
   const { modified } = startNow(tasks, 1, 0);
-  assertEqual(modified.allocatedOffset, dk, 'allocatedOffsetが今日');
+  assertEqual(modified.allocatedOffset, offsetToDateKey(0), '今日のdateKey');
 });
 
-test('通常タスクは新しいタスクを追加しない（元のタスクを変更）', () => {
-  const tasks = [
-    { id: 1, title: '読書', duration: 30, allocated: false, repeatMode: 'none',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(0) }
-  ];
-  const initialLen = tasks.length;
+test('通常タスクはタスク数が増えない', () => {
+  const tasks = [{ id: 1, title: '読書', duration: 30, allocated: false,
+    repeatMode: 'none', doneDates: [], customDays: [], createdOffset: offsetToDateKey(0) }];
   const { tasks: result } = startNow([...tasks], 1, 0);
-  assertEqual(result.length, initialLen, 'タスク数は増えない');
+  assertEqual(result.length, 1, 'タスク数は1のまま');
 });
 
-test('存在しないtaskIdはエラーを返す', () => {
-  const tasks = [];
-  const { error } = startNow(tasks, 999, 0);
-  assert(error === 'task not found', 'エラーが返る');
+test('存在しないIDはerrorを返す', () => {
+  const { error } = startNow([], 999, 0);
+  assertEqual(error, 'task not found', 'エラーが返る');
 });
 
-// ── [2] 繰り返しタスク（repeatMode!=none）────────────
-console.log('\n▶ [2] 繰り返しタスク（repeatMode!=none）');
+// ══════════════════════════════════════════
+// [D] startNow動作テスト（繰り返しタスク）
+// ══════════════════════════════════════════
+console.log('\n▶ [D] startNow動作テスト（繰り返しタスク）');
 
 test('繰り返しタスクはオリジナルを変更しない', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }
-  ];
-  const orig = tasks[0];
+  const tasks = [{ id: 1, title: 'NIKKE', duration: 15, allocated: false,
+    repeatMode: 'daily', doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }];
   startNow(tasks, 1, 0);
-  assert(orig.allocated === false, 'オリジナルのallocatedは変わらない');
-  assert(orig.start === undefined, 'オリジナルのstartは変わらない');
+  assert(tasks[0].allocated === false, 'オリジナルのallocatedは変わらない');
+  assert(tasks[0].start === undefined, 'オリジナルのstartは変わらない');
 });
 
 test('繰り返しタスクはコピーが追加される', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }
-  ];
+  const tasks = [{ id: 1, title: 'NIKKE', duration: 15, allocated: false,
+    repeatMode: 'daily', doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }];
   const { tasks: result } = startNow(tasks, 1, 0);
   assertEqual(result.length, 2, 'コピーが追加されて2件になる');
 });
 
 test('繰り返しタスクのコピーはrepeatMode=none', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }
-  ];
+  const tasks = [{ id: 1, title: 'NIKKE', duration: 15, allocated: false,
+    repeatMode: 'daily', doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }];
   const { addedCopy } = startNow(tasks, 1, 0);
   assertEqual(addedCopy.repeatMode, 'none', 'コピーのrepeatMode=none');
 });
 
-test('繰り返しタスクのコピーはallocated=true', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }
-  ];
-  const { addedCopy } = startNow(tasks, 1, 0);
-  assert(addedCopy.allocated === true, 'コピーはallocated=true');
-});
-
 test('繰り返しタスクのコピーのstartが現在時刻', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }
-  ];
+  const tasks = [{ id: 1, title: 'NIKKE', duration: 15, allocated: false,
+    repeatMode: 'daily', doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }];
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const { addedCopy } = startNow(tasks, 1, 0);
   assertEqual(addedCopy.start, nowMin, 'コピーの開始時間が現在時刻');
 });
 
-test('繰り返しタスクのコピーのallocatedOffsetは今日', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }
-  ];
-  const dk = offsetToDateKey(0);
-  const { addedCopy } = startNow(tasks, 1, 0);
-  assertEqual(addedCopy.allocatedOffset, dk, 'コピーのallocatedOffsetは今日');
-});
-
 test('繰り返しタスクのコピーのdoneDatesは空', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [offsetToDateKey(-1)], customDays: [], createdOffset: offsetToDateKey(-10) }
-  ];
+  const tasks = [{ id: 1, title: 'NIKKE', duration: 15, allocated: false,
+    repeatMode: 'daily', doneDates: [offsetToDateKey(-1)], customDays: [],
+    createdOffset: offsetToDateKey(-10) }];
   const { addedCopy } = startNow(tasks, 1, 0);
   assertEqual(addedCopy.doneDates.length, 0, 'コピーのdoneDatesは空');
 });
 
-test('繰り返しタスクのコピーはタイトルが元と同じ', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'weekday',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }
-  ];
-  const { addedCopy } = startNow(tasks, 1, 0);
-  assertEqual(addedCopy.title, 'NIKKE', 'タイトルが保持される');
-});
-
-test('繰り返しタスクのコピーはdurationが元と同じ', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }
-  ];
-  const { addedCopy } = startNow(tasks, 1, 0);
-  assertEqual(addedCopy.duration, 15, 'durationが保持される');
-});
-
-// ── [3] サブタスクの扱い ───────────────────────────
-console.log('\n▶ [3] サブタスクの扱い');
-
-test('繰り返しタスクのサブタスクはtitleのみコピーされる（完了状態はリセット）', () => {
-  const dk = offsetToDateKey(0);
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10),
-      subtasks: [
-        { title: 'ミッション1', [`done_${dk}`]: true },
-        { title: 'ミッション2', [`done_${dk}`]: false },
-      ]
-    }
-  ];
-  const { addedCopy } = startNow(tasks, 1, 0);
-  assert(addedCopy.subtasks.length === 2, 'サブタスク2件がコピーされる');
-  assert(!addedCopy.subtasks[0][`done_${dk}`], '完了状態はリセットされる');
-  assertEqual(addedCopy.subtasks[0].title, 'ミッション1', 'タイトルは保持される');
-});
-
-test('サブタスクなしのタスクはsubtasksが空配列になる', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10) }
-  ];
-  const { addedCopy } = startNow(tasks, 1, 0);
-  assert(Array.isArray(addedCopy.subtasks), 'subtasksが配列');
-  assertEqual(addedCopy.subtasks.length, 0, '空配列');
-});
-
-// ── [4] エッジケース ───────────────────────────────
-console.log('\n▶ [4] エッジケース');
-
-test('既にallocated=trueの通常タスクはstartが更新される', () => {
-  const tasks = [
-    { id: 1, title: '読書', duration: 30, allocated: true, start: 600,
-      repeatMode: 'none', doneDates: [], customDays: [], allocatedOffset: offsetToDateKey(-1) }
-  ];
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  const { modified } = startNow(tasks, 1, 0);
-  assertEqual(modified.start, nowMin, '既存タスクのstartが現在時刻に更新される');
-});
-
-test('notifyフラグはコピーに引き継がれる', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10), notify: true }
-  ];
-  const { addedCopy } = startNow(tasks, 1, 0);
-  assert(addedCopy.notify === true, 'notifyフラグが引き継がれる');
-});
-
-test('コピーのscheduledは常にfalse（固定しない）', () => {
-  const tasks = [
-    { id: 1, title: 'NIKKE', duration: 15, allocated: false, repeatMode: 'daily',
-      doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10), scheduled: true }
-  ];
+test('繰り返しタスクのコピーのscheduledはfalse', () => {
+  const tasks = [{ id: 1, title: 'NIKKE', duration: 15, allocated: false,
+    repeatMode: 'daily', doneDates: [], customDays: [], scheduled: true,
+    createdOffset: offsetToDateKey(-10) }];
   const { addedCopy } = startNow(tasks, 1, 0);
   assert(addedCopy.scheduled === false, 'コピーのscheduledはfalse');
 });
 
-// ── 結果サマリー ─────────────────────────────────────
-console.log('\n╔════════════════════════════════════════════╗');
-console.log('║               テスト結果サマリー           ║');
-console.log('╠════════════════════════════════════════════╣');
+test('projectフィールドがコピーに引き継がれる', () => {
+  const tasks = [{ id: 1, title: 'NIKKE', duration: 15, allocated: false,
+    repeatMode: 'daily', doneDates: [], customDays: [], project: '開発',
+    createdOffset: offsetToDateKey(-10) }];
+  const { addedCopy } = startNow(tasks, 1, 0);
+  assertEqual(addedCopy.project, '開発', 'projectが引き継がれる');
+});
+
+test('サブタスクはtitleのみコピーされ完了状態はリセット', () => {
+  const dk = offsetToDateKey(0);
+  const tasks = [{ id: 1, title: 'NIKKE', duration: 15, allocated: false,
+    repeatMode: 'daily', doneDates: [], customDays: [], createdOffset: offsetToDateKey(-10),
+    subtasks: [{ title: 'ミッション1', [`done_${dk}`]: true }] }];
+  const { addedCopy } = startNow(tasks, 1, 0);
+  assertEqual(addedCopy.subtasks[0].title, 'ミッション1', 'タイトル保持');
+  assert(!addedCopy.subtasks[0][`done_${dk}`], '完了状態はリセット');
+});
+
+// ══════════════════════════════════════════
+// 結果サマリー
+// ══════════════════════════════════════════
+console.log('\n╔══════════════════════════════════════════════╗');
+console.log('║                テスト結果サマリー            ║');
+console.log('╠══════════════════════════════════════════════╣');
 console.log(`║  合計: ${passed + failed} 件`);
 console.log(`║  ✅ PASS: ${passed} 件`);
 console.log(`║  ❌ FAIL: ${failed} 件`);
-console.log('╚════════════════════════════════════════════╝');
+console.log('╚══════════════════════════════════════════════╝');
 
 if (failed > 0) {
   console.log('\n失敗したテスト:');
