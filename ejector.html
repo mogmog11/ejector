@@ -87,13 +87,13 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
 #app.show-later .later-list { flex: 1; overflow-y: auto; min-height: 0; }
 /* report-view */
 #report-view { display: none; }
-/* PC版でもレポートを表示できるようにする */
-#app.show-report #main        { display: none; }
-#app.show-report #rpanel      { width: 100%; border-left: none; }
-#app.show-report #report-view { display: flex !important; flex: 1; min-height: 0; }
-#app.show-report #later-view  { display: none !important; }
-#app.show-report #input-view  { display: none !important; }
+/* PC版でもレポートタブを表示できるようにする */
+#app.show-report #main         { display: none; }
+#app.show-report #rpanel       { width: 100%; border-left: none; }
+#app.show-report #later-view   { display: none !important; }
+#app.show-report #input-view   { display: none !important; }
 #app.show-report #project-view { display: none !important; }
+#app.show-report #report-view  { display: flex !important; flex: 1; min-height: 0; }
 
 /* ─── HEADER ─── */
 header {
@@ -711,7 +711,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
       <button class="pc-nav-btn active" id="pcNavMain"     onclick="switchTab('main')"    >📅 予定</button>
       <button class="pc-nav-btn"        id="pcNavLater"    onclick="switchTab('later')"   >📋 リスト</button>
       <button class="pc-nav-btn"        id="pcNavInput"    onclick="switchTab('input')"   >＋ 追加</button>
-      <button class="pc-nav-btn"        id="pcNavProject"  onclick="switchTab('project')" >🗂 PJ</button>
       <button class="pc-nav-btn"        id="pcNavReport"   onclick="switchTab('report')"  >📊 レポート</button>
       <button class="pc-nav-btn"        id="pcNavSettings" onclick="switchTab('settings')">⚙ 設定</button>
     </div>
@@ -1013,6 +1012,25 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
             </div>
           </div>
 
+          <!-- データ移行 -->
+          <div style="background:white; border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;">
+            <div style="font-weight:700; font-size:14px; margin-bottom:4px;">💾 データのエクスポート / インポート</div>
+            <div style="font-size:12px; color:var(--ink3); margin-bottom:12px; line-height:1.6;">
+              ブラウザやファイルの場所が変わったときにデータを引き継ぐことができます。
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button onclick="exportData()"
+                style="flex:1; min-width:120px; padding:10px 14px; background:var(--green); color:white; border-radius:10px; font-weight:700; font-size:13px;">
+                📤 エクスポート
+              </button>
+              <label style="flex:1; min-width:120px; padding:10px 14px; background:var(--bg2); color:var(--ink2); border-radius:10px; font-weight:700; font-size:13px; text-align:center; cursor:pointer; border:1px solid var(--border);">
+                📥 インポート
+                <input type="file" accept=".json" style="display:none;" onchange="importData(event)">
+              </label>
+            </div>
+            <div id="importMsg" style="display:none; margin-top:8px; font-size:12px; padding:8px 10px; border-radius:8px;"></div>
+          </div>
+
         </div>
       </section>
 
@@ -1052,10 +1070,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
     <button class="tab-btn" onclick="switchTab('input')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
       <span>追加</span>
-    </button>
-    <button class="tab-btn" onclick="switchTab('project')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h18"/><circle cx="7" cy="7" r="2" fill="currentColor"/><circle cx="7" cy="12" r="2" fill="currentColor"/><circle cx="7" cy="17" r="2" fill="currentColor"/></svg>
-      <span>PJ</span>
     </button>
     <button class="tab-btn" onclick="switchTab('report')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18l5-5 4 4 5-6 4 4"/><path d="M3 6h18"/></svg>
@@ -1849,9 +1863,9 @@ let editingTaskId = null;
 let currentRange = { start: 540, end: 1440, workEndMin: 1110 };
 
 const DEFAULT_TASKS = [
-  { id: 1, title: '業務開始', start: 540, duration: 30, allocated: true, repeatMode: 'weekday', customDays: [], doneDates: [], isWorkStart: true },
-  { id: 2, title: '定時', start: 1080, duration: 30, allocated: true, repeatMode: 'weekday', customDays: [], doneDates: [], isWorkEnd: true },
-  { id: 3, title: 'ミーティング', start: 600, duration: 60, allocated: true, repeatMode: 'weekday', customDays: [], doneDates: [] }
+  { id: 1, title: '起床', start: 420, duration: 30, allocated: true, repeatMode: 'daily', customDays: [], doneDates: [], isWorkStart: true },
+  { id: 2, title: '就寝', start: 1380, duration: 60, allocated: true, repeatMode: 'daily', customDays: [], doneDates: [], isWorkEnd: true },
+  { id: 3, title: '読書', duration: 20, allocated: false, repeatMode: 'none', customDays: [], doneDates: [] }
 ];
 
 const state = {
@@ -1927,22 +1941,9 @@ function migrateTaskDates() {
   if (changed) saveToLocal();
 }
 
-// 起床/就寝 → 業務開始/定時 マイグレーション
+// マイグレーション（旧バージョンとの互換性維持 - 現在は変換なし）
 function migrateWorkBoundaryTitles() {
-  let changed = false;
-  state.tasks.forEach(task => {
-    if (task.title === '起床' && !task.isWorkStart) {
-      task.title = '業務開始'; task.isWorkStart = true;
-      task.repeatMode = task.repeatMode === 'daily' ? 'weekday' : task.repeatMode;
-      changed = true;
-    }
-    if (task.title === '就寝' && !task.isWorkEnd) {
-      task.title = '定時'; task.isWorkEnd = true;
-      task.repeatMode = task.repeatMode === 'daily' ? 'weekday' : task.repeatMode;
-      changed = true;
-    }
-  });
-  if (changed) saveToLocal();
+  // 起床/就寝タスクは変換しない（プライベート用タイトルを保持）
 }
 
 
@@ -2365,7 +2366,9 @@ function appendGapRow(tl, startMin, endMin, showChips) {
     if (t.doneDates.includes(dk)) return false;
     if (t.deletedDates && t.deletedDates.includes(dk)) return false;
     if (t.scheduledDate && dk < t.scheduledDate) return false;
+    const created = t.createdOffset !== undefined ? t.createdOffset : 0;
     if (t.repeatMode !== 'none') {
+      if (dk < created) return false;
       if (!isRepeatMatchDay(t, currentDayOffset)) return false;
       const hasTodayCopy = state.tasks.some(other =>
         other.repeatMode === 'none' && other.allocated &&
@@ -2374,7 +2377,8 @@ function appendGapRow(tl, startMin, endMin, showChips) {
       if (hasTodayCopy) return false;
       return true;
     }
-    return true;
+    // repeatMode:'none' は作成日のみ
+    return created === dk;
   }) : [];
   // 今日やるタスクが1件以上あれば今日やるのみ絞り込む
   const _todayCandidates = _allCandidates.filter(t => t.todayFlag);
@@ -2468,7 +2472,8 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
     const isPastDay    = currentDayOffset < 0;
     const isFutureDay  = currentDayOffset > 0;
     const isInProgress = !isPastDay && !isFutureDay && nowMin > taskStart && nowMin < taskEnd;
-    const isPassed     = isPastDay || (!isFutureDay && nowMin >= taskEnd);
+    // 未来日は絶対に塗らない（isFutureDayを最優先チェック）
+    const isPassed     = !isFutureDay && (isPastDay || nowMin >= taskEnd);
     const progress = isInProgress
       ? Math.round(((nowMin - taskStart) / origTask.duration) * 100)
       : isPassed ? 100 : 0;
@@ -3262,10 +3267,11 @@ function renderLaterList() {
     if (t.allocated) return false;
     if (t.deletedDates && t.deletedDates.includes(dk)) return false;
     const created = t.createdOffset !== undefined ? t.createdOffset : 0;
-    if (dk < created) return false;
     // scheduledDate: 指定日以降のみ表示（次営業日送り）
     if (t.scheduledDate && dk < t.scheduledDate) return false;
     if (t.repeatMode !== 'none') {
+      // 繰り返しタスク: 作成日以降で、曜日が合う日のみ表示
+      if (dk < created) return false;
       if (!isRepeatMatchDay(t, currentDayOffset)) return false;
       const hasTodayCopy = state.tasks.some(other =>
         other.repeatMode === 'none' && other.allocated &&
@@ -3274,7 +3280,8 @@ function renderLaterList() {
       if (hasTodayCopy) return false;
       return true;
     }
-    return true;
+    // repeatMode:'none' のタスクは作成された日のみ表示
+    return created === dk;
   });
 
   // プロジェクトフィルターボタンを動的生成
@@ -3872,8 +3879,8 @@ function addTask() {
     document.querySelectorAll('#customDays input:checked').forEach(i => customDays.push(parseInt(i.value)));
   }
 
-  const isWorkStart = title.includes('業務開始');
-  const isWorkEnd   = title.includes('定時');
+  const isWorkStart = title.includes('業務開始') || title.includes('起床');
+  const isWorkEnd   = title.includes('定時') || title.includes('就寝');
   const taskType  = document.getElementById('taskType').value || 'task';
   const project   = document.getElementById('addProject').value.trim() || undefined;
   const priority  = document.getElementById('addPriority').value || undefined;
@@ -3982,19 +3989,15 @@ function switchTab(tab) {
   const btns = document.querySelectorAll('.tab-btn');
   btns.forEach(b => b.classList.remove('active'));
   // PC navのアクティブ状態
-  const pcMap = { main:'pcNavMain', later:'pcNavLater', input:'pcNavInput', project:'pcNavProject', report:'pcNavReport', settings:'pcNavSettings' };
+  const pcMap = { main:'pcNavMain', later:'pcNavLater', input:'pcNavInput', report:'pcNavReport', settings:'pcNavSettings' };
   document.querySelectorAll('.pc-nav-btn').forEach(b => b.classList.remove('active'));
   const pcBtn = document.getElementById(pcMap[tab] || 'pcNavMain');
   if (pcBtn) pcBtn.classList.add('active');
 
   if (tab === 'later')        { app.classList.add('show-later');   btns[1].classList.add('active'); }
   else if (tab === 'input')   { app.classList.add('show-input');   btns[2].classList.add('active'); }
-  else if (tab === 'project') {
-    app.classList.add('show-project'); btns[3].classList.add('active');
-    renderProjectList();
-  }
   else if (tab === 'report')  {
-    app.classList.add('show-report'); btns[4].classList.add('active');
+    app.classList.add('show-report'); btns[3].classList.add('active');
     renderReport();
   }
   else if (tab === 'settings') {
@@ -4229,10 +4232,27 @@ function moveToLaterFromEdit() {
   const task = state.tasks.find(t => t.id === editingTaskId);
   if (!task) return;
   if (task.repeatMode !== 'none') {
-    // 繰り返しタスク → allocated=false にするだけ（repeatModeは維持）
-    task.allocated = false;
-    task.start = null;
-    task.overrides = {};
+    // 繰り返しタスク → 今日分をdeletedDatesに追加し、
+    // repeatMode='none' のコピーをあとでリストに作成（翌日以降には残らない）
+    const dk = offsetToDateKey(currentDayOffset);
+    if (!task.deletedDates) task.deletedDates = [];
+    if (!task.deletedDates.includes(dk)) task.deletedDates.push(dk);
+    const laterCopy = {
+      id: Date.now(),
+      title: task.title,
+      duration: task.duration,
+      allocated: false,
+      repeatMode: 'none',
+      customDays: [],
+      doneDates: [],
+      createdOffset: dk,
+      notify: task.notify || false,
+      project: task.project || '',
+      priority: task.priority || '',
+      taskType: task.taskType || 'task',
+      subtasks: task.subtasks ? JSON.parse(JSON.stringify(task.subtasks.map(s => ({ title: s.title })))) : [],
+    };
+    state.tasks.push(laterCopy);
   } else {
     task.allocated = false;
     task.repeatMode = 'none';
@@ -4576,6 +4596,64 @@ function duplicateTask(id) {
   renderAll();
   // 短いフラッシュで複製を知らせる
   showToast(`「${task.title}」を複製しました`);
+}
+
+// ══════════════════════════════════════════════
+//  データ エクスポート / インポート
+// ══════════════════════════════════════════════
+function exportData() {
+  const data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tasks:    state.tasks,
+    workdays: state.workdays,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href     = url;
+  a.download = `ejector_backup_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📤 エクスポートしました');
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.tasks || !Array.isArray(data.tasks)) throw new Error('タスクデータが見つかりません');
+      if (!confirm(`${data.tasks.length}件のタスクをインポートします。\n現在のデータは上書きされます。よろしいですか？`)) return;
+      state.tasks    = data.tasks;
+      state.workdays = data.workdays || {};
+      saveToLocal();
+      migrateTaskDates();
+      renderAll();
+      const msg = document.getElementById('importMsg');
+      if (msg) {
+        msg.textContent = `✅ ${data.tasks.length}件のタスクをインポートしました`;
+        msg.style.display = 'block';
+        msg.style.background = 'var(--green-dim)';
+        msg.style.color = 'var(--green)';
+        setTimeout(() => { msg.style.display = 'none'; }, 3000);
+      }
+      showToast(`📥 ${data.tasks.length}件インポートしました`);
+    } catch(err) {
+      const msg = document.getElementById('importMsg');
+      if (msg) {
+        msg.textContent = `❌ エラー: ${err.message}`;
+        msg.style.display = 'block';
+        msg.style.background = 'rgba(192,57,43,0.1)';
+        msg.style.color = 'var(--red)';
+      }
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
 }
 
 function showToast(msg) {
