@@ -718,6 +718,34 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   border-style: dashed;
 }
 .free-gap.large-gap.drag-over { background: #ede0ce; border-style: solid; }
+
+/* ─── DEADLINE BADGES ─── */
+.due-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 700; padding: 2px 7px;
+  border-radius: 8px; white-space: nowrap; flex-shrink: 0;
+}
+.due-overdue  { background: rgba(192,57,43,0.15); color: var(--red); }
+.due-today    { background: rgba(192,57,43,0.12); color: var(--red); }
+.due-tomorrow { background: rgba(230,126,34,0.12); color: var(--orange); }
+.due-soon     { background: rgba(230,126,34,0.08); color: var(--orange); }
+.due-future   { background: var(--bg2); color: var(--ink3); }
+
+/* ─── UNSCHEDULED WARNING BANNER ─── */
+#dueWarningBanner {
+  display: none; flex-shrink: 0;
+  background: rgba(192,57,43,0.07); border-bottom: 1px solid rgba(192,57,43,0.2);
+  padding: 8px 14px; cursor: default;
+}
+#dueWarningBanner.has-warnings { display: block; }
+.due-warning-title {
+  font-size: 11px; font-weight: 700; color: var(--red);
+  margin-bottom: 4px; display: flex; align-items: center; gap: 5px;
+}
+.due-warning-item {
+  font-size: 12px; color: var(--red); padding: 1px 0;
+  display: flex; align-items: center; gap: 6px;
+}
 </style>
 </head>
 <body>
@@ -747,6 +775,10 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
       <button onclick="openInsertTaskSheet(event)" title="差し込みタスク"
         style="font-size:12px; font-weight:700; padding:0 12px; height:36px; border-radius:18px; background:var(--now-line); color:white; display:flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
         📌 差し込む
+      </button>
+      <button id="autoScheduleBtn" onclick="autoSchedule()" title="空き時間にタスクを自動配置"
+        style="font-size:12px; font-weight:700; padding:0 12px; height:36px; border-radius:18px; background:var(--orange-dim); color:var(--orange); border:1.5px solid rgba(230,126,34,0.3); display:flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
+        ⚡ 自動配置
       </button>
       <button id="aiCopyBtn" onclick="openAiCopy()" title="AIにコピー"
         style="font-size:12px; font-weight:700; padding:0 12px; height:36px; border-radius:18px; background:var(--green-dim); color:var(--green); border:1.5px solid var(--green-glow); display:flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;">
@@ -877,6 +909,11 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
               </select>
             </div>
           </div>
+          <!-- 締切日 -->
+          <div class="input-group">
+            <label>📅 締切日（任意）</label>
+            <input type="date" id="addDueDate" class="input-field" style="padding:10px 12px; font-size:13px;">
+          </div>
           <!-- 今日やるトグル -->
           <label style="display:flex; align-items:center; gap:10px; background:rgba(45,122,79,0.07); border:1px solid var(--green-glow); border-radius:10px; padding:10px 12px; cursor:pointer; margin-bottom:10px;">
             <input type="checkbox" id="addTodayFlag" style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;">
@@ -972,6 +1009,8 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
           <!-- プロジェクトフィルター（動的生成） -->
           <div style="display:flex; gap:6px; overflow-x:auto; padding-top:6px;" id="laterProjFilterRow"></div>
         </div>
+        <!-- 未スケジュール警告バナー -->
+        <div id="dueWarningBanner"></div>
         <div class="later-list" id="later-list"></div>
         <!-- 完了済み折りたたみ -->
         <div id="laterDoneSection" style="flex-shrink:0;">
@@ -1171,6 +1210,10 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
       <div class="input-group">
         <label>📝 メモ</label>
         <textarea id="editMemo" class="input-field" placeholder="メモ・詳細・リンクなど..." rows="2" style="resize:vertical; font-size:13px; line-height:1.6;"></textarea>
+      </div>
+      <div class="input-group">
+        <label>📅 締切日</label>
+        <input type="date" id="editDueDate" class="input-field" style="padding:10px 12px; font-size:13px;">
       </div>
       <label style="display:flex;align-items:center;gap:10px;background:rgba(45,122,79,0.07);border:1px solid var(--green-glow);border-radius:10px;padding:10px 12px;cursor:pointer;margin-bottom:12px;">
         <input type="checkbox" id="editTodayFlag" style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;">
@@ -2465,7 +2508,8 @@ function appendGroupRow(tl, tasks, colMap, spanMap, MAX_COLS, showNowOverlay = f
     const priHTML  = origTask.priority ? `<span class="${priClass}">${priMap[origTask.priority]||''}</span>` : '';
     const projHTML = origTask.project  ? `<span class="proj-tag">📁 ${origTask.project}</span>` : '';
     const memoHTML = origTask.memo     ? `<div class="memo-snippet">📝 ${origTask.memo}</div>` : '';
-    const badgesHTML = (priHTML || projHTML) ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">${priHTML}${projHTML}</div>` : '';
+    const dueHTML  = !isWorkBoundary ? getDueBadge(origTask, dk) : '';
+    const badgesHTML = (priHTML || projHTML || dueHTML) ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">${priHTML}${projHTML}${dueHTML}</div>` : '';
 
     // 親タスクへの参照があれば親名ラベルを生成
     const parentTask = origTask._splitFrom ? state.tasks.find(t => t.id === origTask._splitFrom) : null;
@@ -3222,6 +3266,7 @@ function renderLaterList() {
             ${t.todayFlag ? '<span class="today-flag-badge">⭐ 今日やる</span>' : ''}
             ${t.priority ? `<span class="pri-badge pri-${t.priority}">${{high:'🔴 高',mid:'🟠 中',low:'🔵 低'}[t.priority]||''}</span>` : ''}
             ${t.project  ? `<span class="proj-tag">📁 ${t.project}</span>` : ''}
+            ${getDueBadge(t, dk)}
           </div>
           ${t.memo ? `<div class="memo-snippet" style="margin-top:4px;">📝 ${t.memo}</div>` : ''}
           ${t.scheduledDate ? `<div style="font-size:10px;color:var(--blue);font-weight:700;margin-top:3px;">📅 ${t.scheduledDate} から表示</div>` : ''}
@@ -3277,6 +3322,8 @@ function renderLaterList() {
     if (doneList)    { doneList.style.display = 'block'; doneList.innerHTML = done.map(cardHTML).join(''); }
     if (collapseBtn) { collapseBtn.style.display = 'block'; collapseBtn.textContent = '完了を折りたたむ'; }
   }
+
+  renderDueWarnings();
 }
 
 // ══════════════════════════════════════════════
@@ -3591,13 +3638,16 @@ function addTask() {
   const taskType  = document.getElementById('taskType').value || 'task';
   const project   = document.getElementById('addProject').value.trim() || undefined;
   const priority  = document.getElementById('addPriority').value || undefined;
-  const todayFlag = document.getElementById('addTodayFlag')?.checked || false;
+  const todayFlag  = document.getElementById('addTodayFlag')?.checked || false;
+  const dueDateRaw = document.getElementById('addDueDate')?.value;
+  const dueDate    = dueDateRaw ? parseInt(dueDateRaw.replace(/-/g, '')) : undefined;
   const newTask = { id: Date.now(), title, duration: dur, allocated: false, repeatMode, customDays, doneDates: [],
     createdOffset: offsetToDateKey(currentDayOffset),
     taskType,
     ...(project   ? {project}   : {}),
     ...(priority  ? {priority}  : {}),
     ...(todayFlag ? {todayFlag: true} : {}),
+    ...(dueDate   ? {dueDate}        : {}),
     ...(isWakeUp ? {isWakeUp: true} : {}),
     ...(isSleep   ? {isSleep: true}   : {}) };
 
@@ -3620,6 +3670,7 @@ function addTask() {
   document.getElementById('addProject').value = '';
   document.getElementById('addPriority').value = '';
   if (document.getElementById('addTodayFlag')) document.getElementById('addTodayFlag').checked = false;
+  if (document.getElementById('addDueDate'))   document.getElementById('addDueDate').value = '';
   setTaskType('task');
   // timeline ラジオをデフォルトに戻す
   const tlRadio = document.querySelector('input[name="taskPlacementR"][value="timeline"]');
@@ -3758,6 +3809,16 @@ function openEdit(id) {
   document.getElementById('editPriority').value  = task.priority  || '';
   document.getElementById('editMemo').value      = task.memo      || '';
   document.getElementById('editTodayFlag').checked = !!task.todayFlag;
+  // 締切日
+  const dueDateInput = document.getElementById('editDueDate');
+  if (dueDateInput) {
+    if (task.dueDate) {
+      const ds = String(task.dueDate).padStart(8,'0');
+      dueDateInput.value = `${ds.slice(0,4)}-${ds.slice(4,6)}-${ds.slice(6,8)}`;
+    } else {
+      dueDateInput.value = '';
+    }
+  }
   // プロジェクト候補を datalist に追加
   const allProjects = [...new Set(state.tasks.map(t=>t.project).filter(Boolean))];
   const dl = document.getElementById('project-suggestions');
@@ -3892,6 +3953,8 @@ function saveEdit() {
   task.priority  = document.getElementById('editPriority').value || undefined;
   task.memo      = document.getElementById('editMemo').value.trim() || undefined;
   task.todayFlag = document.getElementById('editTodayFlag').checked || undefined;
+  const dueDateRaw = document.getElementById('editDueDate')?.value;
+  task.dueDate = dueDateRaw ? parseInt(dueDateRaw.replace(/-/g, '')) : undefined;
   closeEdit(); saveState(); renderAll();
 }
 
@@ -4635,6 +4698,203 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ══════════════════════════════════════════════
+//  DEADLINE UTILITIES
+// ══════════════════════════════════════════════
+function dateKeyDiff(dkA, dkB) {
+  // dkA - dkB を日数で返す（正=未来、負=過去）
+  const toDate = dk => {
+    const y = Math.floor(dk / 10000);
+    const m = Math.floor((dk % 10000) / 100) - 1;
+    const d = dk % 100;
+    return new Date(y, m, d);
+  };
+  return Math.round((toDate(dkA) - toDate(dkB)) / 86400000);
+}
+
+function getDueBadge(task, todayDk) {
+  if (!task.dueDate) return '';
+  const diff = dateKeyDiff(task.dueDate, todayDk);
+  if (diff < 0)  return `<span class="due-badge due-overdue">🔴 ${-diff}日超過</span>`;
+  if (diff === 0) return `<span class="due-badge due-today">🔴 今日期限</span>`;
+  if (diff === 1) return `<span class="due-badge due-tomorrow">🟠 明日期限</span>`;
+  if (diff <= 7)  return `<span class="due-badge due-soon">🟡 ${diff}日後</span>`;
+  return `<span class="due-badge due-future">📅 ${diff}日後</span>`;
+}
+
+// ══════════════════════════════════════════════
+//  未スケジュール警告
+// ══════════════════════════════════════════════
+function renderDueWarnings() {
+  const banner = document.getElementById('dueWarningBanner');
+  if (!banner) return;
+
+  const dk = offsetToDateKey(currentDayOffset);
+  // 今日タイムラインに配置済みのタスクID
+  const scheduledIds = new Set(
+    state.tasks.filter(t => isTaskForToday(t, currentDayOffset)).map(t => t.id)
+  );
+
+  // 締切が今日以前 かつ 未完了 かつ 未スケジュール のタスク
+  const warnings = state.tasks.filter(t => {
+    if (!t.dueDate) return false;
+    if (t.doneDates && t.doneDates.includes(dk)) return false;
+    if (t.deletedDates && t.deletedDates.includes(dk)) return false;
+    if (scheduledIds.has(t.id)) return false; // タイムライン配置済みは除外
+    const diff = dateKeyDiff(t.dueDate, dk);
+    return diff <= 0; // 今日以前の期限
+  });
+
+  if (warnings.length === 0) {
+    banner.classList.remove('has-warnings');
+    banner.innerHTML = '';
+    return;
+  }
+
+  const items = warnings.map(t => {
+    const diff = dateKeyDiff(t.dueDate, dk);
+    const label = diff === 0 ? '今日期限' : `${-diff}日超過`;
+    return `<div class="due-warning-item" onclick="openEdit(${t.id})" style="cursor:pointer;">
+      🔴 <strong>${t.title}</strong>（${label}・${t.duration}分）
+    </div>`;
+  }).join('');
+
+  banner.innerHTML = `<div class="due-warning-title">⚠ 期限切れ・未スケジュール ${warnings.length}件</div>${items}`;
+  banner.classList.add('has-warnings');
+}
+
+// ══════════════════════════════════════════════
+//  自動スケジューリング
+// ══════════════════════════════════════════════
+function autoSchedule() {
+  const dk = offsetToDateKey(currentDayOffset);
+  const nowMin = currentDayOffset === 0
+    ? new Date().getHours() * 60 + new Date().getMinutes()
+    : 0;
+
+  // 今日のタイムラインタスクを取得してグループ化
+  const dayTasks = state.tasks.filter(t => isTaskForToday(t, currentDayOffset));
+  const range    = getTimelineRange(dayTasks);
+
+  const sorted = dayTasks
+    .map(t => ({ ...t, start: getTaskStart(t, currentDayOffset) }))
+    .sort((a, b) => a.start - b.start);
+
+  // 重なるタスクをグループ（occupied区間）にまとめる
+  const occupied = [];
+  let i = 0;
+  while (i < sorted.length) {
+    let end = sorted[i].start + sorted[i].duration;
+    i++;
+    while (i < sorted.length && sorted[i].start < end) {
+      end = Math.max(end, sorted[i].start + sorted[i].duration);
+      i++;
+    }
+    occupied.push({ start: sorted[i-1] ? sorted[i-1].start : sorted[0].start, end });
+  }
+  // 正確に再計算
+  const occupied2 = [];
+  let j = 0;
+  const s2 = [...sorted];
+  while (j < s2.length) {
+    let gEnd = s2[j].start + s2[j].duration;
+    let gStart = s2[j].start;
+    j++;
+    while (j < s2.length && s2[j].start < gEnd) {
+      gEnd = Math.max(gEnd, s2[j].start + s2[j].duration);
+      j++;
+    }
+    occupied2.push({ start: gStart, end: gEnd });
+  }
+
+  // 空き時間（now以降・range内）を収集
+  const gaps = [];
+  let pos = Math.max(range.start, nowMin);
+  occupied2.forEach(occ => {
+    if (occ.start > pos) gaps.push({ start: pos, end: occ.start });
+    pos = Math.max(pos, occ.end);
+  });
+  if (pos < range.end) gaps.push({ start: pos, end: range.end });
+
+  // タスクプール候補を優先度順にソート
+  const priOrder = { high: 0, mid: 1, low: 2 };
+  const candidates = state.tasks.filter(t => {
+    if (t.allocated) return false;
+    if (t.doneDates && t.doneDates.includes(dk)) return false;
+    if (t.deletedDates && t.deletedDates.includes(dk)) return false;
+    if (t.taskType === 'event') return false;
+    if (t.isWakeUp || t.isSleep) return false;
+    if (t.scheduledDate && dk < t.scheduledDate) return false;
+    return true;
+  }).sort((a, b) => {
+    // 締切が早い順 → todayFlag → 優先度 → 所要時間（短い順）
+    const aDue = a.dueDate ? dateKeyDiff(a.dueDate, dk) : 9999;
+    const bDue = b.dueDate ? dateKeyDiff(b.dueDate, dk) : 9999;
+    if (aDue !== bDue) return aDue - bDue;
+    const aToday = a.todayFlag ? 0 : 1, bToday = b.todayFlag ? 0 : 1;
+    if (aToday !== bToday) return aToday - bToday;
+    const ap = priOrder[a.priority] ?? 3, bp = priOrder[b.priority] ?? 3;
+    if (ap !== bp) return ap - bp;
+    return a.duration - b.duration;
+  });
+
+  let placed = 0;
+  const usedIds = new Set();
+
+  gaps.forEach(gap => {
+    let gapPos   = gap.start;
+    let remaining = gap.end - gap.start;
+
+    for (const task of candidates) {
+      if (usedIds.has(task.id)) continue;
+      if (task.duration > remaining) continue;
+
+      // 繰り返しタスク → 今日だけコピーを作成（startNow と同じ方式）
+      if (task.repeatMode !== 'none') {
+        const copy = {
+          id: Date.now() + Math.floor(Math.random() * 10000),
+          title:          task.title,
+          duration:       task.duration,
+          allocated:      true,
+          start:          gapPos,
+          repeatMode:     'none',
+          allocatedOffset: dk,
+          createdOffset:  dk,
+          customDays:     [],
+          doneDates:      [],
+          taskType:       task.taskType || 'task',
+          ...(task.priority  ? { priority: task.priority }  : {}),
+          ...(task.project   ? { project:  task.project }   : {}),
+          ...(task.dueDate   ? { dueDate:  task.dueDate }   : {}),
+          ...(task.memo      ? { memo:     task.memo }      : {}),
+          _autoScheduled: true,
+        };
+        state.tasks.push(copy);
+      } else {
+        task.start          = gapPos;
+        task.allocated      = true;
+        task.allocatedOffset = dk;
+      }
+
+      usedIds.add(task.id);
+      gapPos    += task.duration;
+      remaining -= task.duration;
+      placed++;
+
+      if (remaining < 5) break;
+    }
+  });
+
+  if (placed === 0) {
+    showToast('⚡ 配置できるタスクがありませんでした（空き時間またはプールが不足）');
+  } else {
+    saveState();
+    renderAll();
+    showToast(`⚡ ${placed}件を空き時間に自動配置しました`);
+    switchTab('main');
+  }
+}
+
+// ══════════════════════════════════════════════
 //  AI COPY
 // ══════════════════════════════════════════════
 function openAiCopy() {
@@ -4704,7 +4964,8 @@ function copyAsMarkdown(template) {
     activeLater.forEach(t => {
       const pri  = t.priority ? ` ${priLabel[t.priority]||''}` : '';
       const flag = t.todayFlag ? ' ⭐今日やる' : '';
-      md += `- ${t.title}${pri}${flag} (${t.duration}分)\n`;
+      const due  = t.dueDate ? ` 締切:${String(t.dueDate).replace(/(\d{4})(\d{2})(\d{2})/,'$1/$2/$3')}` : '';
+      md += `- ${t.title}${pri}${flag}${due} (${t.duration}分)\n`;
     });
   }
   if (doneLater.length > 0) {
