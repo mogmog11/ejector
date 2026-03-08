@@ -72,10 +72,10 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
 #main { flex: 1; display: flex; flex-direction: column; position: relative; background: var(--surface); min-width: 0; }
 #rpanel { width: 320px; background: var(--bg2); display: flex; flex-direction: column; border-left: 1px solid var(--border); z-index: 100; overflow: hidden; }
 
-/* input-view は中身が多い場合スクロール */
-#input-view { display: flex; flex-direction: column; overflow-y: auto; max-height: 60%; flex-shrink: 0; }
-/* later-view は残りスペースを埋めてスクロール */
-#later-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-top: 1px solid var(--border); min-height: 0; }
+/* input-view: タブバー＋アクティブなフォームを表示 */
+#input-view { display: flex; flex-direction: column; overflow: hidden; flex: 1; }
+/* later-view: デフォルト非表示、switchAddMode('later')またはshow-laterで表示 */
+#later-view { display: none; flex-direction: column; overflow: hidden; border-top: 1px solid var(--border); min-height: 0; }
 
 /* PC版: show-later でタイムラインを隠してあとでリストをフル画面 */
 #app.show-later #main       { display: none; }
@@ -654,33 +654,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   #app.show-settings #settings-view { display: flex !important; flex: 1; min-height: 0; overflow-y: auto; }
 }
 
-/* ─── PC バーチカル画面 あとでリスト 3列スプリットビュー ─── */
-#app.show-later-pc #rpanel {
-  width: min(720px, 55vw);
-  flex-shrink: 0;
-}
-#app.show-later-pc #input-view { display: none; }
-#app.show-later-pc #later-view {
-  display: flex; flex-direction: column;
-  flex: 1; min-height: 0; overflow: hidden;
-  border-top: none;
-}
-#app.show-later-pc #later-list,
-#app.show-later-pc #later-done-list {
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  align-items: start;
-  padding: 10px 12px;
-}
-#app.show-later-pc .later-card {
-  margin-bottom: 0;
-  min-width: 0;
-}
-#app.show-later-pc .later-list {
-  flex: 1; overflow-y: auto; min-height: 0;
-}
-
 /* ─── 今日やるバッジ ─── */
 .today-flag-badge {
   display: inline-flex; align-items: center; gap: 3px;
@@ -863,6 +836,10 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
           <button id="addModeBulk" onclick="switchAddMode('bulk')"
             style="flex:1; padding:10px; font-size:12px; font-weight:700; color:var(--ink3); border-bottom:2px solid transparent; background:none;">
             📋 一括追加
+          </button>
+          <button id="addModeLater" onclick="switchAddMode('later')"
+            style="flex:1; padding:10px; font-size:12px; font-weight:700; color:var(--ink3); border-bottom:2px solid transparent; background:none;">
+            📌 あとで
           </button>
         </div>
 
@@ -3456,22 +3433,50 @@ function setAddTimeToNow() {
 //  追加モード切替
 // ══════════════════════════════════════════════
 function switchAddMode(mode) {
-  const single = document.getElementById('addSingleForm');
-  const bulk   = document.getElementById('addBulkForm');
-  const btnS   = document.getElementById('addModeSingle');
-  const btnB   = document.getElementById('addModeBulk');
+  // モバイルで「あとで」タブをタップしたらフルスクリーン表示に切り替え
+  if (mode === 'later' && window.innerWidth <= 768) {
+    switchTab('later');
+    return;
+  }
+
+  const single    = document.getElementById('addSingleForm');
+  const bulk      = document.getElementById('addBulkForm');
+  const laterView = document.getElementById('later-view');
+  const inputView = document.getElementById('input-view');
+  const btnS      = document.getElementById('addModeSingle');
+  const btnB      = document.getElementById('addModeBulk');
+  const btnL      = document.getElementById('addModeLater');
+
+  const setBtn = (btn, active) => {
+    if (!btn) return;
+    btn.style.color = active ? 'var(--green)' : 'var(--ink3)';
+    btn.style.borderBottomColor = active ? 'var(--green)' : 'transparent';
+  };
+
+  // 全パネル非表示にリセット
+  single.style.display = 'none';
+  bulk.style.display   = 'none';
+  if (laterView) laterView.style.cssText = 'display:none;';
+  setBtn(btnS, false); setBtn(btnB, false); setBtn(btnL, false);
+
   if (mode === 'single') {
     single.style.display = 'flex'; single.style.flexDirection = 'column';
-    bulk.style.display   = 'none';
-    btnS.style.color = 'var(--green)'; btnS.style.borderBottomColor = 'var(--green)';
-    btnB.style.color = 'var(--ink3)';  btnB.style.borderBottomColor = 'transparent';
-  } else {
-    single.style.display = 'none';
-    bulk.style.display   = 'block';
-    btnB.style.color = 'var(--green)'; btnB.style.borderBottomColor = 'var(--green)';
-    btnS.style.color = 'var(--ink3)';  btnS.style.borderBottomColor = 'transparent';
+    if (inputView) { inputView.style.flex = '1'; inputView.style.overflow = 'hidden'; }
+    setBtn(btnS, true);
+  } else if (mode === 'bulk') {
+    bulk.style.display = 'block';
+    if (inputView) { inputView.style.flex = '1'; inputView.style.overflow = 'hidden'; }
+    setBtn(btnB, true);
     // プロジェクト候補を datalist に更新
     const allProjects = [...new Set(state.tasks.map(t=>t.project).filter(Boolean))];
+  } else if (mode === 'later') {
+    // input-view をタブバーだけの高さに縮める
+    if (inputView) { inputView.style.flex = '0 0 auto'; inputView.style.overflow = 'visible'; }
+    if (laterView) {
+      laterView.style.cssText = 'display:flex; flex-direction:column; flex:1; overflow:hidden; min-height:0; border-top:1px solid var(--border);';
+    }
+    setBtn(btnL, true);
+    renderLaterList();
   }
 }
 
@@ -3841,7 +3846,7 @@ function showCompletionToast(title, elapsed, extra, type) {
 function switchTab(tab) {
   const app = document.getElementById('app');
   const isMobile = window.innerWidth <= 768;
-  app.classList.remove('show-later', 'show-later-pc', 'show-input', 'show-report', 'show-settings');
+  app.classList.remove('show-later', 'show-input', 'show-report', 'show-settings');
   const btns = document.querySelectorAll('.tab-btn');
   btns.forEach(b => b.classList.remove('active'));
   // PC navのアクティブ状態
@@ -3851,12 +3856,21 @@ function switchTab(tab) {
   if (pcBtn) pcBtn.classList.add('active');
 
   if (tab === 'later') {
-    // PC: タイムラインを残したまま右パネルを3列表示に拡張
-    // モバイル: 従来通りフルスクリーン
-    app.classList.add(isMobile ? 'show-later' : 'show-later-pc');
+    if (isMobile) {
+      app.classList.add('show-later');
+    } else {
+      // PC: 追加パネルの「あとで」タブに切り替え
+      switchAddMode('later');
+    }
     btns[1].classList.add('active');
-  } else if (tab === 'input')   { app.classList.add('show-input');    btns[2].classList.add('active'); }
-  else if (tab === 'report')  {
+  } else if (tab === 'input') {
+    if (isMobile) {
+      app.classList.add('show-input');
+    } else {
+      switchAddMode('single');
+    }
+    btns[2].classList.add('active');
+  } else if (tab === 'report')  {
     app.classList.add('show-report');   btns[3].classList.add('active');
     renderReport();
   }
