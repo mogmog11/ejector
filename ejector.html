@@ -2214,7 +2214,15 @@ function isTaskForToday(task, offset) {
   // 今日のみ削除されている場合は非表示
   if (task.deletedDates && task.deletedDates.includes(dk)) return false;
 
-  if (!task.allocated) return false;
+  // allocated:false でも、その日に完了した記録があれば過去日タイムラインに表示する
+  if (!task.allocated) {
+    if (task.repeatMode === 'none' &&
+        task.allocatedOffset === dk &&
+        task.doneDates && task.doneDates.includes(dk)) {
+      return true;
+    }
+    return false;
+  }
 
   // 登録日より前のオフセットには表示しない
   const created = task.createdOffset !== undefined ? task.createdOffset : 0;
