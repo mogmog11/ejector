@@ -88,6 +88,9 @@ button { cursor: pointer; border: none; background: none; color: inherit; }
   border-top: none;
 }
 #app.show-later .later-list { flex: 1; overflow-y: auto; min-height: 0; }
+/* show-input: 入力フォームを全高表示、あとでリストを隠す（PC・モバイル共通） */
+#app.show-input #later-view { display: none !important; }
+#app.show-input #input-view { flex: 1 !important; max-height: none !important; overflow-y: auto; }
 /* report-view */
 #report-view { display: none; }
 /* PC版 show-report */
@@ -614,6 +617,8 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   #weekNavMobile .week-days { flex: 1; display: flex; overflow: hidden; }
   /* スマホ版: ヘッダーのPC向け大ボタンを非表示にしてリロードボタンを見えるようにする */
   #insertHeaderBtn, #autoScheduleBtn, #aiCopyBtn { display: none !important; }
+  /* スマホ版: 検索・ソートバーは非表示（PC専用） */
+  #laterSearchRow { display: none !important; }
 
   #rpanel { display: none; }
   #tabNav { display: flex; }
@@ -1049,6 +1054,20 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
           </div>
           <!-- プロジェクトフィルター（動的生成） -->
           <div style="display:flex; gap:6px; overflow-x:auto; padding-top:6px;" id="laterProjFilterRow"></div>
+          <!-- PC: 検索＆ソートバー -->
+          <div id="laterSearchRow" style="display:flex; gap:6px; align-items:center; margin-top:8px;">
+            <input id="laterSearch" type="search" class="input-field" placeholder="🔍 タスク検索..."
+              style="flex:1; padding:7px 12px; font-size:12px; min-width:0;"
+              oninput="setLaterSearch(this.value)">
+            <select id="laterSortSelect" class="input-field"
+              style="flex-shrink:0; width:96px; padding:7px 6px; font-size:11px;"
+              onchange="setLaterSort(this.value)">
+              <option value="priority">優先度順</option>
+              <option value="due">締切順</option>
+              <option value="title">名前順</option>
+              <option value="created">作成順</option>
+            </select>
+          </div>
         </div>
         <!-- 未スケジュール警告バナー -->
         <div id="dueWarningBanner"></div>
@@ -3194,6 +3213,18 @@ function laterAddTask() {
 let laterFilter = 'all';
 let laterProjFilter = null;
 let laterDoneCollapsed = true;
+let laterSearchQuery = '';
+let laterSortMode = 'priority';
+
+function setLaterSearch(q) {
+  laterSearchQuery = q;
+  renderLaterList();
+}
+
+function setLaterSort(mode) {
+  laterSortMode = mode;
+  renderLaterList();
+}
 
 function setLaterFilter(f) {
   laterFilter = f;
@@ -3264,9 +3295,30 @@ function renderLaterList() {
     return true;
   });
 
+  // テキスト検索フィルター
+  if (laterSearchQuery) {
+    const q = laterSearchQuery.toLowerCase();
+    filtered = filtered.filter(t =>
+      t.title.toLowerCase().includes(q) ||
+      (t.memo && t.memo.toLowerCase().includes(q)) ||
+      (t.project && t.project.toLowerCase().includes(q))
+    );
+  }
+
   const priOrder = { high: 0, mid: 1, low: 2, '': 3, undefined: 3 };
   const sortFn = (a, b) => {
-    // 手動並び替えが設定されている場合はそれを優先
+    if (laterSortMode === 'title') {
+      return (a.title || '').localeCompare(b.title || '', 'ja');
+    }
+    if (laterSortMode === 'due') {
+      const aDue = a.dueDate || 99999999;
+      const bDue = b.dueDate || 99999999;
+      return aDue - bDue;
+    }
+    if (laterSortMode === 'created') {
+      return String(a.createdOffset || '').localeCompare(String(b.createdOffset || ''));
+    }
+    // priority（デフォルト）: 手動順 → 今日やる → 優先度
     if (a.manualOrder !== undefined && b.manualOrder !== undefined)
       return a.manualOrder - b.manualOrder;
     if (a.manualOrder !== undefined) return -1;
