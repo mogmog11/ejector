@@ -1445,21 +1445,23 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 </div>
 <div id="repeatConfirmOverlay" class="overlay">
   <div class="modal-card" onclick="event.stopPropagation()" style="max-width:340px;">
-    <p class="modal-title" style="font-size:15px;">🔁 繰り返しタスクの変更</p>
-    <p id="repeatConfirmMsg" style="font-size:13px; color:var(--ink2); margin:0 0 20px; line-height:1.7;"></p>
-    <div style="display:flex; flex-direction:column; gap:10px;">
-      <button onclick="applyRepeatChange('today')"
-        style="padding:14px; background:var(--green); color:white; border-radius:12px; font-weight:700; font-size:14px;">
-        今日のみ変更
-      </button>
-      <button onclick="applyRepeatChange('all')"
-        style="padding:14px; background:var(--blue); color:white; border-radius:12px; font-weight:700; font-size:14px;">
-        今後すべて変更
-      </button>
-      <button onclick="closeRepeatConfirm()"
-        style="padding:12px; color:var(--ink3); font-weight:700; font-size:13px;">
-        キャンセル
-      </button>
+    <div style="padding:24px;">
+      <p class="modal-title" id="repeatConfirmTitle" style="font-size:15px;">🔁 繰り返しタスクの変更</p>
+      <p id="repeatConfirmMsg" style="font-size:13px; color:var(--ink2); margin:0 0 20px; line-height:1.7;"></p>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button id="repeatTodayBtn" onclick="applyRepeatChange('today')"
+          style="padding:14px; background:var(--green); color:white; border-radius:12px; font-weight:700; font-size:14px;">
+          今日のみ変更
+        </button>
+        <button id="repeatAllBtn" onclick="applyRepeatChange('all')"
+          style="padding:14px; background:var(--blue); color:white; border-radius:12px; font-weight:700; font-size:14px;">
+          今後すべて変更
+        </button>
+        <button onclick="closeRepeatConfirm()"
+          style="padding:12px; color:var(--ink3); font-weight:700; font-size:13px;">
+          キャンセル
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -2174,6 +2176,7 @@ function getTimelineRange(dayTasks) {
 //  RENDER
 // ══════════════════════════════════════════════
 function renderAll() {
+  recyclePastTasks();
   const dayTasks = state.tasks.filter(t => isTaskForToday(t, currentDayOffset));
   currentRange = getTimelineRange(dayTasks);
 
@@ -3833,13 +3836,55 @@ function closeEdit() { document.getElementById('editOverlay').style.display = 'n
 
 // 繰り返し変更の保留データ
 let pendingRepeatChange = null;
+let pendingMoveToLater  = null;
 
 function closeRepeatConfirm() {
   document.getElementById('repeatConfirmOverlay').style.display = 'none';
+  // ボタンラベルをデフォルトに戻す
+  document.getElementById('repeatConfirmTitle').textContent  = '🔁 繰り返しタスクの変更';
+  document.getElementById('repeatTodayBtn').textContent      = '今日のみ変更';
+  document.getElementById('repeatAllBtn').textContent        = '今後すべて変更';
   pendingRepeatChange = null;
+  pendingMoveToLater  = null;
 }
 
 function applyRepeatChange(mode) {
+  // あとで移動ケースを先に処理
+  if (pendingMoveToLater) {
+    const task = pendingMoveToLater;
+    const dk   = offsetToDateKey(currentDayOffset);
+    if (mode === 'today') {
+      // 今日だけ：タイムラインから今日のみ削除 + あとでリストに今日限定コピー追加
+      if (!task.deletedDates) task.deletedDates = [];
+      if (!task.deletedDates.includes(dk)) task.deletedDates.push(dk);
+      const copy = {
+        id: Date.now(),
+        title:    task.title,
+        duration: task.duration,
+        allocated: false,
+        repeatMode: 'none',
+        customDays: [],
+        doneDates:  [],
+        createdOffset: dk,
+        taskType: task.taskType || 'task',
+        ...(task.priority ? { priority: task.priority } : {}),
+        ...(task.project  ? { project:  task.project  } : {}),
+        ...(task.memo     ? { memo:     task.memo     } : {}),
+        ...(task.dueDate  ? { dueDate:  task.dueDate  } : {}),
+      };
+      state.tasks.push(copy);
+    } else {
+      // 今後すべて：allocated=false にして全日から取り除く
+      task.allocated = false;
+      task.start     = null;
+      task.overrides = {};
+    }
+    closeRepeatConfirm();
+    saveState();
+    renderAll();
+    return;
+  }
+
   if (!pendingRepeatChange) return;
   const { task, newStart, fromLater } = pendingRepeatChange;
 
@@ -4002,15 +4047,20 @@ function moveToLaterFromEdit() {
   const task = state.tasks.find(t => t.id === editingTaskId);
   if (!task) return;
   if (task.repeatMode !== 'none') {
-    // 繰り返しタスク → allocated=false にするだけ（repeatModeは維持）
-    task.allocated = false;
-    task.start = null;
-    task.overrides = {};
-  } else {
-    task.allocated = false;
-    task.repeatMode = 'none';
-    task.start = null;
+    // 繰り返しタスク → 今日だけ or 今後すべて確認ダイアログを表示
+    pendingMoveToLater = task;
+    document.getElementById('repeatConfirmTitle').textContent = '📋 あとでに移動';
+    document.getElementById('repeatConfirmMsg').textContent =
+      `「${task.title}」をあとでリストに移動します。今日だけですか？それとも今後すべての日から取り除きますか？`;
+    document.getElementById('repeatTodayBtn').textContent = '今日だけ後でに移動';
+    document.getElementById('repeatAllBtn').textContent  = '今後すべて後でに移動';
+    document.getElementById('repeatConfirmOverlay').style.display = 'flex';
+    closeEdit();
+    return;
   }
+  // 繰り返しなしタスク → そのままリストに戻す
+  task.allocated = false;
+  task.start = null;
   closeEdit(); saveState(); renderAll();
 }
 
@@ -4522,7 +4572,8 @@ function addSubtask() {
   input.value = '';
   renderSubtaskList(task);
   saveState();
-  renderAll();
+  // renderAll() はモーダルを閉じる saveEdit() 時に呼ばれるため、ここでは不要
+  // （モーダルを開いたまま全再描画すると recyclePastTasks が誤動作する可能性があるため省略）
 }
 
 function toggleSubtask(index, checked) {
@@ -4532,7 +4583,6 @@ function toggleSubtask(index, checked) {
   task.subtasks[index][doneKey] = checked;
   renderSubtaskList(task);
   saveState();
-  renderAll();
 }
 
 function deleteSubtask(index) {
@@ -4541,7 +4591,6 @@ function deleteSubtask(index) {
   task.subtasks.splice(index, 1);
   renderSubtaskList(task);
   saveState();
-  renderAll();
 }
 
 // ══════════════════════════════════════════════
@@ -4696,6 +4745,27 @@ window.onload = async () => {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) pullFromBin();
 });
+
+// ══════════════════════════════════════════════
+//  過去日の配置済みタスクをあとでリストに戻す
+// ══════════════════════════════════════════════
+function recyclePastTasks() {
+  const todayDk = offsetToDateKey(0);
+  let changed = false;
+  state.tasks.forEach(task => {
+    // repeatMode:'none' かつ allocated:true かつ allocatedOffset が今日より前
+    if (
+      task.repeatMode === 'none' &&
+      task.allocated &&
+      task.allocatedOffset !== undefined &&
+      task.allocatedOffset < todayDk
+    ) {
+      task.allocated = false;
+      changed = true;
+    }
+  });
+  if (changed) saveToLocal();
+}
 
 // ══════════════════════════════════════════════
 //  DEADLINE UTILITIES
