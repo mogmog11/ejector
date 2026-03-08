@@ -4986,6 +4986,9 @@ function recyclePastTasks() {
       task.allocatedOffset !== undefined &&
       task.allocatedOffset < todayDk
     ) {
+      // 完了済みタスクは過去日のタイムラインに残す（履歴として表示）
+      const doneOnDay = task.doneDates && task.doneDates.includes(task.allocatedOffset);
+      if (doneOnDay) return;
       task.allocated = false;
       changed = true;
     }
