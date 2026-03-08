@@ -649,20 +649,31 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
   #app.show-settings #settings-view { display: flex !important; flex: 1; min-height: 0; overflow-y: auto; }
 }
 
-/* ─── PC あとでリスト 3列グリッド ─── */
-@media (min-width: 769px) {
-  #app.show-later #later-list,
-  #app.show-later #later-done-list {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    align-items: start;
-    padding: 12px 16px;
-    overflow-y: auto;
-  }
-  #app.show-later .later-list {
-    overflow-y: auto;
-  }
+/* ─── PC バーチカル画面 あとでリスト 3列スプリットビュー ─── */
+#app.show-later-pc #rpanel {
+  width: min(720px, 55vw);
+  flex-shrink: 0;
+}
+#app.show-later-pc #input-view { display: none; }
+#app.show-later-pc #later-view {
+  display: flex; flex-direction: column;
+  flex: 1; min-height: 0; overflow: hidden;
+  border-top: none;
+}
+#app.show-later-pc #later-list,
+#app.show-later-pc #later-done-list {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 10px 12px;
+}
+#app.show-later-pc .later-card {
+  margin-bottom: 0;
+  min-width: 0;
+}
+#app.show-later-pc .later-list {
+  flex: 1; overflow-y: auto; min-height: 0;
 }
 
 /* ─── 今日やるバッジ ─── */
@@ -1264,6 +1275,7 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
     <div class="modal-footer">
       <div style="display:flex; gap:12px;">
         <button onclick="deleteTask()" style="flex:1; padding:14px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700;">削除</button>
+        <button onclick="duplicateFromEdit()" style="flex:1; padding:14px; color:var(--blue); border:1px solid var(--border); border-radius:10px; font-weight:700;">📋 複製</button>
         <button onclick="saveEdit()" style="flex:2; padding:14px; background:var(--green); color:white; border-radius:10px; font-weight:700; font-size:15px;">保存</button>
       </div>
       <div style="display:flex; gap:8px; margin-top:10px;">
@@ -3776,7 +3788,8 @@ function showCompletionToast(title, elapsed, extra, type) {
 
 function switchTab(tab) {
   const app = document.getElementById('app');
-  app.classList.remove('show-later', 'show-input', 'show-report', 'show-settings');
+  const isMobile = window.innerWidth <= 768;
+  app.classList.remove('show-later', 'show-later-pc', 'show-input', 'show-report', 'show-settings');
   const btns = document.querySelectorAll('.tab-btn');
   btns.forEach(b => b.classList.remove('active'));
   // PC navのアクティブ状態
@@ -3785,8 +3798,12 @@ function switchTab(tab) {
   const pcBtn = document.getElementById(pcMap[tab] || 'pcNavMain');
   if (pcBtn) pcBtn.classList.add('active');
 
-  if (tab === 'later')        { app.classList.add('show-later');    btns[1].classList.add('active'); }
-  else if (tab === 'input')   { app.classList.add('show-input');    btns[2].classList.add('active'); }
+  if (tab === 'later') {
+    // PC: タイムラインを残したまま右パネルを3列表示に拡張
+    // モバイル: 従来通りフルスクリーン
+    app.classList.add(isMobile ? 'show-later' : 'show-later-pc');
+    btns[1].classList.add('active');
+  } else if (tab === 'input')   { app.classList.add('show-input');    btns[2].classList.add('active'); }
   else if (tab === 'report')  {
     app.classList.add('show-report');   btns[3].classList.add('active');
     renderReport();
@@ -4525,6 +4542,11 @@ function setupLongPress(el, taskId) {
   el.addEventListener('mousedown',  start);
   el.addEventListener('mouseup',    cancel);
   el.addEventListener('mouseleave', cancel);
+}
+
+function duplicateFromEdit() {
+  duplicateTask(editingTaskId);
+  closeEdit();
 }
 
 function duplicateTask(id) {
