@@ -1553,21 +1553,43 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
 
     <div id="syncStatusBadge" class="sync-badge off">⊘ 未接続</div>
 
-    <details open>
-      <summary>📋 設定手順（無料・Worker URLのみ）</summary>
+    <details>
+      <summary>📋 初期設定手順（タップして開く）</summary>
       <div class="instructions">
+
+        <div style="font-size:11px; color:var(--ink2); margin-bottom:10px; padding:8px 10px; background:var(--bg3); border-radius:8px; line-height:1.6;">
+          ⏱ 所要時間: 約5分 ／ Cloudflareアカウント（無料）が必要です
+        </div>
+
+        <div style="font-weight:700; font-size:12px; margin:0 0 4px; color:var(--ink);">STEP 1 ― Workerを作る</div>
         <ol>
-          <li><a href="https://dash.cloudflare.com/sign-up" target="_blank">cloudflare.com</a> に無料登録（メールのみ）</li>
-          <li>左メニュー「Workers &amp; Pages」→「Create」→「Create Worker」</li>
-          <li>Worker 名を適当につけて「Deploy」</li>
-          <li>「Edit code」を開いて、以下のコードを<strong>全て上書き</strong>してペースト</li>
-          <li>右上の「Deploy」ボタンを押す</li>
-          <li>左メニュー「KV」→「Create a namespace」→ 名前は何でもOK（例: <code>ejector</code>）→「Add」</li>
-          <li>Workerの設定画面 →「Settings」→「Bindings」→「Add」→「KV Namespace」→ 変数名を <code>KV</code>、先ほどのKVを選択して保存</li>
-          <li>【バックグラウンド通知を使う場合】「Settings」→「Variables and Secrets」→「Add」→ 変数名 <code>VAPID_PRIVATE_KEY</code>、値に秘密鍵を入力して保存</li>
-          <li>【バックグラウンド通知を使う場合】「Triggers」→「Cron Triggers」→「Add Cron Trigger」→ <code>* * * * *</code> を入力して保存（毎分実行）</li>
-          <li>Worker の URL（<code>https://xxx.workers.dev</code>）を下の欄に貼り付けて「接続する」</li>
+          <li><a href="https://dash.cloudflare.com/sign-up" target="_blank">cloudflare.com</a> に無料登録（メールアドレスのみ）</li>
+          <li>ダッシュボード左メニュー「<strong>Workers &amp; Pages</strong>」→「<strong>Create</strong>」→「<strong>Create Worker</strong>」</li>
+          <li>Worker名を入力して「<strong>Deploy</strong>」（名前は何でもOK）</li>
+          <li>「<strong>Edit code</strong>」ボタンを押す → 画面左のコードを<strong>全て選択して削除</strong> → 下のコードを貼り付け → 右上「<strong>Deploy</strong>」</li>
+          <li>Workerのページ上部に表示される <code>https://〇〇〇.workers.dev</code> のURLをメモしておく（STEP 3で使用）</li>
         </ol>
+
+        <div style="font-weight:700; font-size:12px; margin:10px 0 4px; color:var(--ink);">STEP 2 ― KV（データ保存場所）を作ってWorkerに接続する</div>
+        <div style="font-size:11px; color:var(--ink2); margin-bottom:6px; line-height:1.6;">KVはCloudflareが提供するデータベースです。タスクデータの保存先として使います。</div>
+        <ol start="6">
+          <li>左メニュー「<strong>Workers &amp; Pages</strong>」→ 左サブメニュー「<strong>KV</strong>」→「<strong>Create a namespace</strong>」→ 名前は何でもOK（例: <code>ejector</code>）→「<strong>Add</strong>」</li>
+          <li>左メニューで先ほど作った<strong>Workerの名前</strong>をクリック → 上部タブ「<strong>Settings</strong>」→「<strong>Bindings</strong>」→「<strong>Add</strong>」</li>
+          <li>「<strong>KV Namespace</strong>」を選択 → Variable name欄に <code>KV</code> と入力（大文字）→ KV Namespaceのプルダウンで手順⑥のKVを選択 →「<strong>Save</strong>」</li>
+        </ol>
+
+        <div style="font-weight:700; font-size:12px; margin:10px 0 4px; color:var(--ink);">STEP 3 ― EJECTORに接続する</div>
+        <ol start="9">
+          <li>下の「Worker URL」欄にSTEP 1でメモしたURLを貼り付けて「<strong>接続する</strong>」を押す</li>
+        </ol>
+
+        <div style="margin-top:10px; padding:8px 10px; background:#fff8e1; border-radius:8px; font-size:11px; color:var(--ink2); line-height:1.7;">
+          🔔 <strong>バックグラウンド通知（オプション・後から追加可能）</strong><br>
+          アプリを閉じていても通知を受け取りたい場合のみ設定します。<br>
+          Worker「Settings」→「Variables and Secrets」→「Add」→ 変数名 <code>VAPID_PRIVATE_KEY</code>、値に秘密鍵を入力して保存<br>
+          Worker「Triggers」→「Cron Triggers」→「Add Cron Trigger」→ <code>* * * * *</code> を入力して保存
+        </div>
+
         <div style="margin-top:8px; padding:10px; background:var(--bg3); border-radius:8px;">
           <div style="font-size:11px; font-weight:700; color:var(--ink2); margin-bottom:6px;">📄 Worker コード（コピーして貼り付け）</div>
           <div style="font-size:11px; color:var(--ink3); margin-bottom:4px;">※ Notion連携を使う場合は、GitHubリポジトリの最新 worker.js をコピーしてください</div>
