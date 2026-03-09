@@ -76,6 +76,66 @@ export default {
       return json({ key: VAPID_PUBLIC_KEY });
     }
 
+    // ═══════════════════════════════════════════════
+    //  Notion API プロキシ
+    // ═══════════════════════════════════════════════
+
+    // ── Notion DB初期化: POST /notion/init ──────────
+    if (path === '/notion/init' && request.method === 'POST') {
+      const notionToken = env.NOTION_TOKEN;
+      if (!notionToken) return json({ error: 'NOTION_TOKEN not configured in Worker environment' }, 500);
+      const { pageId } = await request.json();
+      if (!pageId) return json({ error: 'pageId required' }, 400);
+      try {
+        const db = await notionCreateDatabase(notionToken, pageId);
+        return json({ ok: true, databaseId: db.id });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
+    // ── Notion DBを検索: POST /notion/find-db ───────
+    if (path === '/notion/find-db' && request.method === 'POST') {
+      const notionToken = env.NOTION_TOKEN;
+      if (!notionToken) return json({ error: 'NOTION_TOKEN not configured in Worker environment' }, 500);
+      const { pageId } = await request.json();
+      if (!pageId) return json({ error: 'pageId required' }, 400);
+      try {
+        const dbId = await notionFindDatabase(notionToken, pageId);
+        return json({ ok: true, databaseId: dbId });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
+    // ── Notion全タスク取得: POST /notion/pull ────────
+    if (path === '/notion/pull' && request.method === 'POST') {
+      const notionToken = env.NOTION_TOKEN;
+      if (!notionToken) return json({ error: 'NOTION_TOKEN not configured in Worker environment' }, 500);
+      const { databaseId } = await request.json();
+      if (!databaseId) return json({ error: 'databaseId required' }, 400);
+      try {
+        const tasks = await notionPullAllTasks(notionToken, databaseId);
+        return json({ ok: true, tasks });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
+    // ── Notionへタスク同期: POST /notion/push ────────
+    if (path === '/notion/push' && request.method === 'POST') {
+      const notionToken = env.NOTION_TOKEN;
+      if (!notionToken) return json({ error: 'NOTION_TOKEN not configured in Worker environment' }, 500);
+      const { databaseId, tasks } = await request.json();
+      if (!databaseId || !tasks) return json({ error: 'databaseId and tasks required' }, 400);
+      try {
+        const result = await notionPushTasks(notionToken, databaseId, tasks);
+        return json({ ok: true, ...result });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
     return cors('Not found', 404);
   },
 
