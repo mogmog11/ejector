@@ -76,6 +76,60 @@ export default {
       return json({ key: VAPID_PUBLIC_KEY });
     }
 
+    // ═══════════════════════════════════════════════
+    //  Notion API プロキシ
+    // ═══════════════════════════════════════════════
+
+    // ── Notion DB初期化: POST /notion/init ──────────
+    // 指定ページ内にEJECTOR用データベースを作成
+    if (path === '/notion/init' && request.method === 'POST') {
+      const { notionToken, pageId } = await request.json();
+      if (!notionToken || !pageId) return json({ error: 'notionToken and pageId required' }, 400);
+      try {
+        const db = await notionCreateDatabase(notionToken, pageId);
+        return json({ ok: true, databaseId: db.id });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
+    // ── Notion DBを検索: POST /notion/find-db ───────
+    // ページ内の既存EJECTORデータベースを探す
+    if (path === '/notion/find-db' && request.method === 'POST') {
+      const { notionToken, pageId } = await request.json();
+      if (!notionToken || !pageId) return json({ error: 'notionToken and pageId required' }, 400);
+      try {
+        const dbId = await notionFindDatabase(notionToken, pageId);
+        return json({ ok: true, databaseId: dbId });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
+    // ── Notion全タスク取得: POST /notion/pull ────────
+    if (path === '/notion/pull' && request.method === 'POST') {
+      const { notionToken, databaseId } = await request.json();
+      if (!notionToken || !databaseId) return json({ error: 'notionToken and databaseId required' }, 400);
+      try {
+        const tasks = await notionPullAllTasks(notionToken, databaseId);
+        return json({ ok: true, tasks });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
+    // ── Notionへタスク同期: POST /notion/push ────────
+    if (path === '/notion/push' && request.method === 'POST') {
+      const { notionToken, databaseId, tasks } = await request.json();
+      if (!notionToken || !databaseId || !tasks) return json({ error: 'notionToken, databaseId, tasks required' }, 400);
+      try {
+        const result = await notionPushTasks(notionToken, databaseId, tasks);
+        return json({ ok: true, ...result });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
     return cors('Not found', 404);
   },
 
@@ -315,4 +369,268 @@ function base64ToBytes(b64) {
   const bytes  = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return bytes;
+}
+
+// ═══════════════════════════════════════════════════════
+//  Notion API ヘルパー
+// ═══════════════════════════════════════════════════════
+const NOTION_API = 'https://api.notion.com/v1';
+const NOTION_VERSION = '2022-06-28';
+
+function notionHeaders(token) {
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Notion-Version': NOTION_VERSION,
+    'Content-Type': 'application/json',
+  };
+}
+
+// ── ページ内の既存EJECTORデータベースを検索 ──────────
+async function notionFindDatabase(token, pageId) {
+  // ページの子ブロックを取得してデータベースを探す
+  const res = await fetch(`${NOTION_API}/blocks/${pageId}/children?page_size=100`, {
+    headers: notionHeaders(token),
+  });
+  if (!res.ok) throw new Error(`Notion API error: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  for (const block of data.results) {
+    if (block.type === 'child_database' && block.child_database.title === 'EJECTOR Tasks') {
+      return block.id;
+    }
+  }
+  return null;
+}
+
+// ── データベース作成 ──────────────────────────────────
+async function notionCreateDatabase(token, pageId) {
+  const body = {
+    parent: { type: 'page_id', page_id: pageId },
+    title: [{ type: 'text', text: { content: 'EJECTOR Tasks' } }],
+    properties: {
+      'Title':       { title: {} },
+      'EjectorId':   { number: {} },
+      'Duration':    { number: {} },
+      'Start':       { number: {} },
+      'Allocated':   { checkbox: {} },
+      'RepeatMode':  { select: { options: [
+        { name: 'none', color: 'default' },
+        { name: 'daily', color: 'blue' },
+        { name: 'weekday', color: 'green' },
+        { name: 'weekend', color: 'orange' },
+        { name: 'custom', color: 'purple' },
+        { name: 'month-end', color: 'red' },
+      ]}},
+      'Priority':    { select: { options: [
+        { name: 'high', color: 'red' },
+        { name: 'mid', color: 'orange' },
+        { name: 'low', color: 'blue' },
+      ]}},
+      'TaskType':    { select: { options: [
+        { name: 'task', color: 'default' },
+        { name: 'event', color: 'blue' },
+      ]}},
+      'Project':     { rich_text: {} },
+      'CustomDays':  { rich_text: {} },
+      'DoneDates':   { rich_text: {} },
+      'DeletedDates':{ rich_text: {} },
+      'Overrides':   { rich_text: {} },
+      'Notify':      { checkbox: {} },
+      'IsWakeUp':    { checkbox: {} },
+      'IsSleep':     { checkbox: {} },
+      'TodayFlag':   { checkbox: {} },
+      'AllocatedOffset': { number: {} },
+      'CreatedOffset':   { number: {} },
+      'DueDate':     { number: {} },
+      'Subtasks':    { rich_text: {} },
+      'LastSynced':  { number: {} },
+    },
+  };
+  const res = await fetch(`${NOTION_API}/databases`, {
+    method: 'POST',
+    headers: notionHeaders(token),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Notion DB create error: ${res.status} ${await res.text()}`);
+  return await res.json();
+}
+
+// ── Notionからタスクを全件取得 ────────────────────────
+async function notionPullAllTasks(token, databaseId) {
+  const allPages = [];
+  let cursor = undefined;
+  do {
+    const body = { page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+    const res = await fetch(`${NOTION_API}/databases/${databaseId}/query`, {
+      method: 'POST',
+      headers: notionHeaders(token),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Notion query error: ${res.status} ${await res.text()}`);
+    const data = await res.json();
+    allPages.push(...data.results);
+    cursor = data.has_more ? data.next_cursor : undefined;
+  } while (cursor);
+
+  return allPages.map(notionPageToTask);
+}
+
+// ── Notionページ → EJECTORタスク変換 ─────────────────
+function notionPageToTask(page) {
+  const p = page.properties;
+  const task = {
+    id: getNotionNumber(p.EjectorId),
+    title: getNotionTitle(p.Title),
+    duration: getNotionNumber(p.Duration) || 30,
+    start: getNotionNumber(p.Start) || 540,
+    allocated: getNotionCheckbox(p.Allocated),
+    repeatMode: getNotionSelect(p.RepeatMode) || 'none',
+    customDays: parseJsonProp(getNotionRichText(p.CustomDays)) || [],
+    doneDates: parseJsonProp(getNotionRichText(p.DoneDates)) || [],
+    taskType: getNotionSelect(p.TaskType) || 'task',
+    _notionPageId: page.id,
+  };
+  const deletedDates = parseJsonProp(getNotionRichText(p.DeletedDates));
+  if (deletedDates && deletedDates.length > 0) task.deletedDates = deletedDates;
+  const overrides = parseJsonProp(getNotionRichText(p.Overrides));
+  if (overrides && Object.keys(overrides).length > 0) task.overrides = overrides;
+  const project = getNotionRichText(p.Project);
+  if (project) task.project = project;
+  const priority = getNotionSelect(p.Priority);
+  if (priority) task.priority = priority;
+  if (getNotionCheckbox(p.Notify)) task.notify = true;
+  if (getNotionCheckbox(p.IsWakeUp)) task.isWakeUp = true;
+  if (getNotionCheckbox(p.IsSleep)) task.isSleep = true;
+  if (getNotionCheckbox(p.TodayFlag)) task.todayFlag = true;
+  const allocOff = getNotionNumber(p.AllocatedOffset);
+  if (allocOff) task.allocatedOffset = allocOff;
+  const creatOff = getNotionNumber(p.CreatedOffset);
+  if (creatOff) task.createdOffset = creatOff;
+  const dueDate = getNotionNumber(p.DueDate);
+  if (dueDate) task.dueDate = dueDate;
+  const subtasks = parseJsonProp(getNotionRichText(p.Subtasks));
+  if (subtasks && subtasks.length > 0) task.subtasks = subtasks;
+  const lastSynced = getNotionNumber(p.LastSynced);
+  if (lastSynced) task._notionLastSynced = lastSynced;
+  return task;
+}
+
+// ── EJECTORタスク → Notionプロパティ変換 ─────────────
+function taskToNotionProperties(task) {
+  const props = {
+    'Title':       { title: [{ text: { content: task.title || '' } }] },
+    'EjectorId':   { number: task.id || 0 },
+    'Duration':    { number: task.duration || 30 },
+    'Start':       { number: task.start || 0 },
+    'Allocated':   { checkbox: !!task.allocated },
+    'RepeatMode':  { select: { name: task.repeatMode || 'none' } },
+    'TaskType':    { select: { name: task.taskType || 'task' } },
+    'Notify':      { checkbox: !!task.notify },
+    'IsWakeUp':    { checkbox: !!task.isWakeUp },
+    'IsSleep':     { checkbox: !!task.isSleep },
+    'TodayFlag':   { checkbox: !!task.todayFlag },
+    'CustomDays':  { rich_text: [{ text: { content: JSON.stringify(task.customDays || []) } }] },
+    'DoneDates':   { rich_text: [{ text: { content: JSON.stringify(task.doneDates || []) } }] },
+    'DeletedDates':{ rich_text: [{ text: { content: JSON.stringify(task.deletedDates || []) } }] },
+    'Overrides':   { rich_text: [{ text: { content: truncateStr(JSON.stringify(task.overrides || {}), 2000) } }] },
+    'Subtasks':    { rich_text: [{ text: { content: truncateStr(JSON.stringify(task.subtasks || []), 2000) } }] },
+    'LastSynced':  { number: Date.now() },
+  };
+  if (task.project) props['Project'] = { rich_text: [{ text: { content: task.project } }] };
+  else props['Project'] = { rich_text: [] };
+  if (task.priority) props['Priority'] = { select: { name: task.priority } };
+  else props['Priority'] = { select: null };
+  if (task.allocatedOffset) props['AllocatedOffset'] = { number: task.allocatedOffset };
+  else props['AllocatedOffset'] = { number: null };
+  if (task.createdOffset) props['CreatedOffset'] = { number: task.createdOffset };
+  else props['CreatedOffset'] = { number: null };
+  if (task.dueDate) props['DueDate'] = { number: task.dueDate };
+  else props['DueDate'] = { number: null };
+  return props;
+}
+
+function truncateStr(s, max) { return s.length > max ? s.slice(0, max) : s; }
+
+// ── タスク一括同期（双方向マージ） ────────────────────
+async function notionPushTasks(token, databaseId, localTasks) {
+  // Notion側の現在のタスクを取得
+  const remoteTasks = await notionPullAllTasks(token, databaseId);
+  const remoteMap = new Map();
+  for (const rt of remoteTasks) {
+    remoteMap.set(rt.id, rt);
+  }
+
+  let created = 0, updated = 0;
+  const processedIds = new Set();
+
+  for (const task of localTasks) {
+    processedIds.add(task.id);
+    const remote = remoteMap.get(task.id);
+
+    if (!remote) {
+      // ローカルにあるがNotionにない → 新規作成
+      await notionCreatePage(token, databaseId, task);
+      created++;
+    } else {
+      // 両方にある → ローカルをNotionに反映（ローカル優先）
+      await notionUpdatePage(token, remote._notionPageId, task);
+      updated++;
+    }
+  }
+
+  // Notionにあるがローカルにない → ローカルには追加しない（pullで取得済み）
+  return { created, updated };
+}
+
+// ── Notionページ作成 ──────────────────────────────────
+async function notionCreatePage(token, databaseId, task) {
+  const res = await fetch(`${NOTION_API}/pages`, {
+    method: 'POST',
+    headers: notionHeaders(token),
+    body: JSON.stringify({
+      parent: { database_id: databaseId },
+      properties: taskToNotionProperties(task),
+    }),
+  });
+  if (!res.ok) throw new Error(`Notion create page error: ${res.status} ${await res.text()}`);
+  return await res.json();
+}
+
+// ── Notionページ更新 ──────────────────────────────────
+async function notionUpdatePage(token, pageId, task) {
+  const res = await fetch(`${NOTION_API}/pages/${pageId}`, {
+    method: 'PATCH',
+    headers: notionHeaders(token),
+    body: JSON.stringify({
+      properties: taskToNotionProperties(task),
+    }),
+  });
+  if (!res.ok) throw new Error(`Notion update page error: ${res.status} ${await res.text()}`);
+  return await res.json();
+}
+
+// ── Notionプロパティ読み取りヘルパー ──────────────────
+function getNotionTitle(prop) {
+  if (!prop || !prop.title || prop.title.length === 0) return '';
+  return prop.title.map(t => t.plain_text).join('');
+}
+function getNotionNumber(prop) {
+  if (!prop || prop.number === null || prop.number === undefined) return null;
+  return prop.number;
+}
+function getNotionCheckbox(prop) {
+  if (!prop) return false;
+  return !!prop.checkbox;
+}
+function getNotionSelect(prop) {
+  if (!prop || !prop.select) return null;
+  return prop.select.name;
+}
+function getNotionRichText(prop) {
+  if (!prop || !prop.rich_text || prop.rich_text.length === 0) return '';
+  return prop.rich_text.map(t => t.plain_text).join('');
+}
+function parseJsonProp(str) {
+  if (!str) return null;
+  try { return JSON.parse(str); } catch(e) { return null; }
 }

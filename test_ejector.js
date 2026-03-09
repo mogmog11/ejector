@@ -1,6 +1,7 @@
 // EJECTOR 修正版テストスイート v3
 const fs = require('fs');
-const html = fs.readFileSync('/home/claude/ejector.html', 'utf8');
+const path = require('path');
+const html = fs.readFileSync(path.join(__dirname, 'ejector.html'), 'utf8');
 
 const _store = {};
 global.localStorage = {
