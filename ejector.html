@@ -2166,9 +2166,10 @@ function saveState() {
 function showSyncStatus(status, errMsg) {
   syncStatusVal = status;
   const btn = document.getElementById('syncBtn');
-  const icons  = { off: '☁', syncing: '<span class="spin">↻</span>', ok: '✓', error: '✗' };
+  // アイコンは常に☁（色で状態を表示、常にクリック可能）
   const colors = { off: 'var(--ink3)', syncing: 'var(--blue)', ok: 'var(--green)', error: 'var(--red)' };
-  if (btn) { btn.innerHTML = icons[status] || '☁'; btn.style.color = colors[status]; }
+  const borders = { off: 'var(--border)', syncing: 'var(--blue)', ok: 'var(--green)', error: 'var(--red)' };
+  if (btn) { btn.innerHTML = '☁'; btn.style.color = colors[status]; btn.style.borderColor = borders[status] || 'var(--border)'; }
 
   const badge = document.getElementById('syncStatusBadge');
   if (badge) {
