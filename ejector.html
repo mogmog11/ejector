@@ -804,7 +804,6 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
         🤖 AI
       </button>
       <button id="pullBtn" onclick="manualPull()" title="今すぐ同期" style="font-size:18px; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--ink3); border:1px solid var(--border); background:var(--bg2);">↻</button>
-      <button id="syncBtn" onclick="openSyncSettings()" title="データ同期設定">☁</button>
     </div>
   </header>
 
@@ -2186,9 +2185,13 @@ function openSyncSettings() {
   document.getElementById('workerUrlInput').value    = syncCfg.workerUrl;
   document.getElementById('workerSecretInput').value = syncCfg.secret;
   showSyncStatus(syncStatusVal);
-  document.getElementById('syncOverlay').style.display = 'flex';
+  switchTab('settings');
+  setTimeout(() => {
+    const card = document.getElementById('syncSettingsCard');
+    if (card) card.scrollIntoView({ behavior: 'smooth' });
+  }, 100);
 }
-function closeSyncSettings() { document.getElementById('syncOverlay').style.display = 'none'; }
+function closeSyncSettings() { /* 設定ページにインライン表示のため不要 */ }
 
 function copyWorkerCode() {
   const code = document.getElementById('workerCodeBox').value;
@@ -5162,6 +5165,29 @@ window.onload = async () => {
   enableLaterTouchDrag();
   window.addEventListener('resize', () => positionBlocksByColumn());
   startAutoSync();
+
+  // syncOverlay を設定ページにインライン移動
+  (function() {
+    const overlay = document.getElementById('syncOverlay');
+    const settingsInner = document.querySelector('#settings-view > div:last-child');
+    if (!overlay || !settingsInner) return;
+    const modalCard = overlay.querySelector('.modal-card');
+    if (!modalCard) return;
+    const syncCard = document.createElement('div');
+    syncCard.id = 'syncSettingsCard';
+    syncCard.style.cssText = 'background:white; border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-weight:700; font-size:14px; margin-bottom:12px;';
+    title.textContent = '☁ データ同期設定';
+    syncCard.appendChild(title);
+    for (const child of Array.from(modalCard.childNodes)) {
+      if (child.nodeType === 1 && child.tagName === 'P' && child.classList.contains('modal-title')) continue;
+      if (child.nodeType === 1 && child.tagName === 'BUTTON' && child.textContent.trim() === '閉じる') continue;
+      syncCard.appendChild(child);
+    }
+    settingsInner.appendChild(syncCard);
+    overlay.remove();
+  })();
 };
 
 // タブに戻ってきたとき（スマホでアプリ切り替え後など）に同期
