@@ -83,8 +83,10 @@ export default {
     // ── Notion DB初期化: POST /notion/init ──────────
     // 指定ページ内にEJECTOR用データベースを作成
     if (path === '/notion/init' && request.method === 'POST') {
-      const { notionToken, pageId } = await request.json();
-      if (!notionToken || !pageId) return json({ error: 'notionToken and pageId required' }, 400);
+      const notionToken = env.NOTION_TOKEN;
+      if (!notionToken) return json({ error: 'NOTION_TOKEN not configured in Worker environment' }, 500);
+      const { pageId } = await request.json();
+      if (!pageId) return json({ error: 'pageId required' }, 400);
       try {
         const db = await notionCreateDatabase(notionToken, pageId);
         return json({ ok: true, databaseId: db.id });
@@ -96,8 +98,10 @@ export default {
     // ── Notion DBを検索: POST /notion/find-db ───────
     // ページ内の既存EJECTORデータベースを探す
     if (path === '/notion/find-db' && request.method === 'POST') {
-      const { notionToken, pageId } = await request.json();
-      if (!notionToken || !pageId) return json({ error: 'notionToken and pageId required' }, 400);
+      const notionToken = env.NOTION_TOKEN;
+      if (!notionToken) return json({ error: 'NOTION_TOKEN not configured in Worker environment' }, 500);
+      const { pageId } = await request.json();
+      if (!pageId) return json({ error: 'pageId required' }, 400);
       try {
         const dbId = await notionFindDatabase(notionToken, pageId);
         return json({ ok: true, databaseId: dbId });
@@ -108,8 +112,10 @@ export default {
 
     // ── Notion全タスク取得: POST /notion/pull ────────
     if (path === '/notion/pull' && request.method === 'POST') {
-      const { notionToken, databaseId } = await request.json();
-      if (!notionToken || !databaseId) return json({ error: 'notionToken and databaseId required' }, 400);
+      const notionToken = env.NOTION_TOKEN;
+      if (!notionToken) return json({ error: 'NOTION_TOKEN not configured in Worker environment' }, 500);
+      const { databaseId } = await request.json();
+      if (!databaseId) return json({ error: 'databaseId required' }, 400);
       try {
         const tasks = await notionPullAllTasks(notionToken, databaseId);
         return json({ ok: true, tasks });
@@ -120,8 +126,10 @@ export default {
 
     // ── Notionへタスク同期: POST /notion/push ────────
     if (path === '/notion/push' && request.method === 'POST') {
-      const { notionToken, databaseId, tasks } = await request.json();
-      if (!notionToken || !databaseId || !tasks) return json({ error: 'notionToken, databaseId, tasks required' }, 400);
+      const notionToken = env.NOTION_TOKEN;
+      if (!notionToken) return json({ error: 'NOTION_TOKEN not configured in Worker environment' }, 500);
+      const { databaseId, tasks } = await request.json();
+      if (!databaseId || !tasks) return json({ error: 'databaseId and tasks required' }, 400);
       try {
         const result = await notionPushTasks(notionToken, databaseId, tasks);
         return json({ ok: true, ...result });

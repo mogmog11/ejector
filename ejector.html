@@ -1939,13 +1939,13 @@ function base64ToBytes(b64) {
         ※ <a href="https://www.notion.so/profile/integrations" target="_blank">Notion Integrations</a> でインテグレーションを作成し、対象ページと共有してください。
       </div>
       <div id="notionStatusBadge" style="font-size:12px; padding:8px 10px; border-radius:8px; margin-bottom:10px; background:var(--bg3); color:var(--ink2);">⊘ 未接続</div>
-      <div class="input-group">
-        <label>Integration Token</label>
-        <input type="password" id="notionTokenInput" class="input-field" placeholder="ntn_xxxx...">
+      <div style="font-size:11px; padding:8px 10px; background:var(--orange-dim); border-radius:8px; margin-bottom:10px; color:var(--ink2); line-height:1.6;">
+        🔒 Integration Token は <strong>Cloudflare Worker の環境変数</strong>（<code>NOTION_TOKEN</code>）に設定してください。<br>
+        ブラウザには保存されません。
       </div>
       <div class="input-group">
         <label>ページID</label>
-        <input type="text" id="notionPageIdInput" class="input-field" placeholder="例: 2db180d06e60801b88e2e87b3390e9be" value="2db180d06e60801b88e2e87b3390e9be">
+        <input type="text" id="notionPageIdInput" class="input-field" placeholder="例: f80d518fa3764e3796aaa941aa7a5933" value="f80d518fa3764e3796aaa941aa7a5933">
         <div style="font-size:11px; color:var(--ink3); margin-top:4px;">※ NotionページURLの末尾32文字（ハイフンなし）</div>
       </div>
       <div style="display:flex; gap:8px; margin-top:10px;">
@@ -2234,13 +2234,11 @@ function disconnectSync() {
 //  Notion 連携
 // ══════════════════════════════════════════════
 let notionCfg = {
-  token: '',
   pageId: '',
   databaseId: '',
 };
 
 function loadNotionConfig() {
-  notionCfg.token      = localStorage.getItem('ejector_notionToken') || '';
   notionCfg.pageId     = localStorage.getItem('ejector_notionPageId') || '';
   notionCfg.databaseId = localStorage.getItem('ejector_notionDbId') || '';
 }
@@ -2265,9 +2263,8 @@ function showNotionStatus(status, msg) {
 }
 
 async function connectNotion() {
-  const token  = document.getElementById('notionTokenInput').value.trim();
   const pageId = document.getElementById('notionPageIdInput').value.trim().replace(/-/g, '');
-  if (!token || !pageId) { alert('Token と ページID を入力してください'); return; }
+  if (!pageId) { alert('ページIDを入力してください'); return; }
   if (!syncCfg.workerUrl) { alert('先にWorker URLを設定・接続してください（Notion APIへのプロキシとして使用します）'); return; }
 
   showNotionStatus('syncing', '接続テスト中...');
@@ -2276,7 +2273,7 @@ async function connectNotion() {
     let res = await fetch(syncCfg.workerUrl + '/notion/find-db', {
       method: 'POST',
       headers: cfHeaders(),
-      body: JSON.stringify({ notionToken: token, pageId }),
+      body: JSON.stringify({ pageId }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     let data = await res.json();
@@ -2289,7 +2286,7 @@ async function connectNotion() {
       res = await fetch(syncCfg.workerUrl + '/notion/init', {
         method: 'POST',
         headers: cfHeaders(),
-        body: JSON.stringify({ notionToken: token, pageId }),
+        body: JSON.stringify({ pageId }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       data = await res.json();
@@ -2297,9 +2294,8 @@ async function connectNotion() {
       dbId = data.databaseId;
     }
 
-    // 設定保存
-    notionCfg = { token, pageId, databaseId: dbId };
-    localStorage.setItem('ejector_notionToken', token);
+    // 設定保存（tokenはWorker側に保持、ブラウザには保存しない）
+    notionCfg = { pageId, databaseId: dbId };
     localStorage.setItem('ejector_notionPageId', pageId);
     localStorage.setItem('ejector_notionDbId', dbId);
     showNotionStatus('ok', `DB: ${dbId.slice(0,8)}...`);
@@ -2313,17 +2309,16 @@ async function connectNotion() {
 
 function disconnectNotion() {
   if (!confirm('Notion連携を切断しますか？\nデータはこのデバイスに残ります。')) return;
-  localStorage.removeItem('ejector_notionToken');
   localStorage.removeItem('ejector_notionPageId');
   localStorage.removeItem('ejector_notionDbId');
-  notionCfg = { token: '', pageId: '', databaseId: '' };
+  notionCfg = { pageId: '', databaseId: '' };
   // タスクから_notionPageIdを除去
   state.tasks.forEach(t => { delete t._notionPageId; delete t._notionLastSynced; });
   showNotionStatus('off');
 }
 
 async function syncNotion() {
-  if (!notionCfg.token || !notionCfg.databaseId || !syncCfg.workerUrl) {
+  if (!notionCfg.databaseId || !syncCfg.workerUrl) {
     showNotionStatus('off');
     return;
   }
@@ -2334,7 +2329,6 @@ async function syncNotion() {
       method: 'POST',
       headers: cfHeaders(),
       body: JSON.stringify({
-        notionToken: notionCfg.token,
         databaseId: notionCfg.databaseId,
       }),
     });
@@ -2351,7 +2345,6 @@ async function syncNotion() {
       method: 'POST',
       headers: cfHeaders(),
       body: JSON.stringify({
-        notionToken: notionCfg.token,
         databaseId: notionCfg.databaseId,
         tasks: state.tasks,
       }),
@@ -4483,7 +4476,7 @@ function startAutoSync() {
   }, 30000);
   // Notion: 5分ごとに自動同期
   setInterval(async () => {
-    if (!document.hidden && notionCfg.token && notionCfg.databaseId) {
+    if (!document.hidden && notionCfg.databaseId) {
       await syncNotion();
     }
   }, 300000);
@@ -5105,9 +5098,8 @@ function openSyncSettings() {
   updatePushUI();
   document.getElementById('pushStatusMsg').style.display = 'none';
   // Notion設定を復元
-  document.getElementById('notionTokenInput').value  = notionCfg.token;
   document.getElementById('notionPageIdInput').value = notionCfg.pageId;
-  if (notionCfg.token && notionCfg.databaseId) {
+  if (notionCfg.databaseId) {
     showNotionStatus('ok', `DB: ${notionCfg.databaseId.slice(0,8)}...`);
   } else {
     showNotionStatus('off');
@@ -5167,7 +5159,7 @@ window.onload = async () => {
   }
 
   // Notion接続済みなら状態表示
-  if (notionCfg.token && notionCfg.databaseId) {
+  if (notionCfg.databaseId) {
     showNotionStatus('ok', `DB: ${notionCfg.databaseId.slice(0,8)}...`);
   }
 
