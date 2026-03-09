@@ -2361,6 +2361,25 @@ function loadNotionTasks(remoteTasks) {
   state.tasks = [...localOnly, ...remoteTasks.filter(t => t.id)];
 }
 
+/** タスクの完了状態をNotionへ書き戻す */
+async function pushDoneToNotion(task) {
+  if (!notionCfg.databaseId || !syncCfg.workerUrl || !task._notionPageId) return;
+  try {
+    await fetch(syncCfg.workerUrl + '/notion/update', {
+      method: 'PATCH',
+      headers: cfHeaders(),
+      body: JSON.stringify({
+        pageId: task._notionPageId,
+        properties: {
+          'DoneDates': { rich_text: [{ text: { content: JSON.stringify(task.doneDates || []) } }] },
+        },
+      }),
+    });
+  } catch(e) {
+    console.error('Notion done sync error:', e);
+  }
+}
+
 // ══════════════════════════════════════════════
 //  LOGIC
 // ══════════════════════════════════════════════
@@ -4036,6 +4055,8 @@ function toggleDone(id) {
   }
   saveState();
   renderAll();
+  // Notionへ完了状態を書き戻す
+  pushDoneToNotion(task);
 }
 
 function showCompletionToast(title, elapsed, extra, type) {

@@ -136,6 +136,26 @@ export default {
       }
     }
 
+    // ── Notion単一タスク更新: PATCH /notion/update ───
+    // タスク完了時などにNotionへ書き戻す
+    if (path === '/notion/update' && request.method === 'PATCH') {
+      const notionToken = env.NOTION_TOKEN;
+      if (!notionToken) return json({ error: 'NOTION_TOKEN not configured in Worker environment' }, 500);
+      const { pageId, properties } = await request.json();
+      if (!pageId || !properties) return json({ error: 'pageId and properties required' }, 400);
+      try {
+        const res = await fetch(`${NOTION_API}/pages/${pageId}`, {
+          method: 'PATCH',
+          headers: notionHeaders(notionToken),
+          body: JSON.stringify({ properties }),
+        });
+        if (!res.ok) throw new Error(`Notion update error: ${res.status} ${await res.text()}`);
+        return json({ ok: true });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
     return cors('Not found', 404);
   },
 
