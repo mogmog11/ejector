@@ -226,12 +226,20 @@ async function notionCreateDatabase(token, pageId) {
   return await res.json();
 }
 
-/** データベースの全タスクを取得してEJECTOR形式に変換する */
+/** データベースの「今日」のタスクを取得してEJECTOR形式に変換する */
 async function notionPullAllTasks(token, databaseId) {
   const tasks = [];
   let cursor;
+
+  // 今日の日付をJST（UTC+9）で取得
+  const jstNow = new Date(Date.now() + 9 * 3600 * 1000);
+  const today  = jstNow.toISOString().slice(0, 10); // YYYY-MM-DD
+
   do {
-    const body = { page_size: 100 };
+    const body = {
+      page_size: 100,
+      filter: { property: '実行予定日', date: { equals: today } },
+    };
     if (cursor) body.start_cursor = cursor;
     const res = await fetch(`${NOTION_API}/databases/${databaseId}/query`, {
       method: 'POST',
@@ -242,28 +250,43 @@ async function notionPullAllTasks(token, databaseId) {
     const data = await res.json();
     for (const page of data.results || []) {
       const p = page.properties || {};
-      // タイトルプロパティを名前に関わらず動的に検出
+
+      // タイトルプロパティを動的に検出
       let name = '';
       for (const val of Object.values(p)) {
         if (val.type === 'title') { name = (val.title || []).map(t => t.plain_text).join(''); break; }
       }
       if (!name) continue;
-      const start    = typeof p.Start?.number === 'number' ? p.Start.number : null;
-      const duration = p.Duration?.number || 30;
-      const doneDatesRaw = (p.DoneDates?.rich_text || []).map(t => t.plain_text).join('');
-      let doneDates = [];
-      try { doneDates = JSON.parse(doneDatesRaw); } catch {}
+
+      // 開始時刻をパース（テキスト or フォーミュラで "HH:MM" 形式）
+      let start = null;
+      const startProp = p['開始時刻'];
+      if (startProp) {
+        let timeStr = '';
+        if (startProp.type === 'rich_text')  timeStr = (startProp.rich_text || []).map(t => t.plain_text).join('');
+        else if (startProp.type === 'formula') timeStr = startProp.formula?.string || '';
+        const m = timeStr.match(/^(\d{1,2}):(\d{2})/);
+        if (m) start = parseInt(m[1]) * 60 + parseInt(m[2]);
+      }
+
+      // 予定時間（分）→ duration
+      const duration = p['予定時間（分）']?.number || 30;
+
+      // 仕分け → category（select / multi_select 両対応）
+      const category = p['仕分け']?.select?.name || p['仕分け']?.multi_select?.[0]?.name || '';
+
       tasks.push({
-        id:            page.id.replace(/-/g, ''),
-        _notionPageId: page.id,
+        id:              page.id.replace(/-/g, ''),
+        _notionPageId:   page.id,
         name,
-        allocated:     start !== null,
-        start:         start ?? 9 * 60,
+        allocated:       start !== null,
+        start:           start ?? 9 * 60,
         duration,
-        category:      p.Category?.select?.name || '',
-        memo:          (p.Memo?.rich_text || []).map(t => t.plain_text).join(''),
-        doneDates,
-        createdOffset: 0,
+        category,
+        memo:            '',
+        doneDates:       [],
+        createdOffset:   0,
+        allocatedOffset: 0,
       });
     }
     cursor = data.has_more ? data.next_cursor : null;
