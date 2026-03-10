@@ -3508,6 +3508,17 @@ let laterProjFilter = null;
 let laterDoneCollapsed = true;
 let laterSearchQuery = '';
 let laterSortMode = 'priority';
+let _laterSubTab = 'later';
+
+function switchLaterSubTab(tab) {
+  _laterSubTab = tab;
+  document.getElementById('laterSubContentLater').style.display   = tab === 'later'   ? 'flex' : 'none';
+  document.getElementById('laterSubContentSomeday').style.display = tab === 'someday' ? 'flex' : 'none';
+  const btnL = document.getElementById('laterSubTabLater');
+  const btnS = document.getElementById('laterSubTabSomeday');
+  if (btnL) { btnL.style.color = tab === 'later' ? 'var(--green)' : 'var(--ink3)'; btnL.style.borderBottomColor = tab === 'later' ? 'var(--green)' : 'transparent'; }
+  if (btnS) { btnS.style.color = tab === 'someday' ? 'var(--green)' : 'var(--ink3)'; btnS.style.borderBottomColor = tab === 'someday' ? 'var(--green)' : 'transparent'; }
+}
 
 function setLaterSearch(q) {
   laterSearchQuery = q;

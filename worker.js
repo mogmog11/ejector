@@ -278,11 +278,12 @@ async function notionPullAllTasks(token, databaseId) {
       tasks.push({
         id:              page.id.replace(/-/g, ''),
         _notionPageId:   page.id,
-        name,
+        title:           name,   // EJECTORは task.title を使用（name ではない）
         allocated:       start !== null,
         start:           start ?? 9 * 60,
         duration,
         category,
+        repeatMode:      'none', // 繰り返しなし（未設定だと繰り返しタスク扱いになる）
         memo:            '',
         doneDates:       [],
         createdOffset:   0,
