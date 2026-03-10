@@ -320,7 +320,7 @@ async function notionPushTasks(token, databaseId, tasks) {
   const created = [];
   for (const task of tasks) {
     const props = {
-      [titlePropName]: { title: [{ text: { content: task.name || '' } }] },
+      [titlePropName]: { title: [{ text: { content: task.title || '' } }] },
     };
     if (isWritable('実行予定日'))  props['実行予定日']    = { date: { start: todayISO } };
     if (isWritable('予定時間（分）')) props['予定時間（分）'] = { number: task.duration ?? 30 };
