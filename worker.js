@@ -180,8 +180,15 @@ function notionHeaders(token) {
   };
 }
 
-/** ページの子ブロックから "EJECTOR Tasks" データベースを探す */
+/** 提供されたIDをDBとして直接確認、なければページ子ブロックから "EJECTOR Tasks" DBを探す */
 async function notionFindDatabase(token, pageId) {
+  // まずIDをデータベースとして直接取得を試みる（ユーザーがDB IDを直接入力した場合）
+  const dbRes = await fetch(`${NOTION_API}/databases/${pageId}`, {
+    headers: notionHeaders(token),
+  });
+  if (dbRes.ok) return pageId; // 既存DBをそのまま使用
+
+  // データベースでなければ、ページの子ブロックから "EJECTOR Tasks" を検索
   const res = await fetch(`${NOTION_API}/blocks/${pageId}/children`, {
     headers: notionHeaders(token),
   });
@@ -235,7 +242,11 @@ async function notionPullAllTasks(token, databaseId) {
     const data = await res.json();
     for (const page of data.results || []) {
       const p = page.properties || {};
-      const name = (p.Name?.title || []).map(t => t.plain_text).join('');
+      // タイトルプロパティを名前に関わらず動的に検出
+      let name = '';
+      for (const val of Object.values(p)) {
+        if (val.type === 'title') { name = (val.title || []).map(t => t.plain_text).join(''); break; }
+      }
       if (!name) continue;
       const start    = typeof p.Start?.number === 'number' ? p.Start.number : null;
       const duration = p.Duration?.number || 30;
