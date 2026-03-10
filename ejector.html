@@ -2374,8 +2374,13 @@ async function syncNotion() {
   }
   showNotionStatus('syncing');
   try {
-    // ① EJECTORで新規作成したタスク（_notionPageId なし・起床就寝除く）をNotionへ送信
-    const newLocalTasks = state.tasks.filter(t => !t._notionPageId && !t.isWakeUp && !t.isSleep);
+    // ① EJECTORで「今日」新規作成したタスク（_notionPageId なし・起床就寝除く・未完了）をNotionへ送信
+    const dk = offsetToDateKey(0);
+    const newLocalTasks = state.tasks.filter(t =>
+      !t._notionPageId && !t.isWakeUp && !t.isSleep &&
+      t.createdOffset === dk &&
+      (!t.doneDates || t.doneDates.length === 0)
+    );
     if (newLocalTasks.length > 0) {
       const pushRes = await fetch(syncCfg.workerUrl + '/notion/push', {
         method: 'POST',
