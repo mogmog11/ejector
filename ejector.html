@@ -1988,15 +1988,20 @@ function base64ToBytes(b64) {
         </div>
       </details>
 
-      <div class="input-group">
-        <label>ページID</label>
-        <input type="text" id="notionPageIdInput" class="input-field" placeholder="例: abcd1234efgh5678abcd1234efgh5678">
-        <div style="font-size:11px; color:var(--ink3); margin-top:4px;">NotionページURLの末尾32文字（ハイフンなし）</div>
+      <div id="notionConnectForm">
+        <div class="input-group">
+          <label>ページID</label>
+          <input type="text" id="notionPageIdInput" class="input-field" placeholder="例: abcd1234efgh5678abcd1234efgh5678">
+          <div style="font-size:11px; color:var(--ink3); margin-top:4px;">NotionページURLの末尾32文字（ハイフンなし）</div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button onclick="disconnectNotion()" style="flex:1; padding:10px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700; font-size:13px;">切断</button>
+          <button onclick="connectNotion()" style="flex:2; padding:10px; background:var(--green); color:white; border-radius:10px; font-weight:700; font-size:13px;">接続する</button>
+        </div>
       </div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
+      <div id="notionConnectedActions" style="display:none; gap:8px; margin-top:10px;">
         <button onclick="disconnectNotion()" style="flex:1; padding:10px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700; font-size:13px;">切断</button>
-        <button onclick="connectNotion()" style="flex:1; padding:10px; background:var(--green); color:white; border-radius:10px; font-weight:700; font-size:13px;">接続する</button>
-        <button onclick="syncNotion()" id="notionSyncBtn" style="flex:1; padding:10px; background:var(--blue); color:white; border-radius:10px; font-weight:700; font-size:13px;">読み込み</button>
+        <button onclick="syncNotion()" style="flex:2; padding:10px; background:var(--blue); color:white; border-radius:10px; font-weight:700; font-size:13px;">🔄 今日のタスクを読み込む</button>
       </div>
     </div>
 
@@ -2310,6 +2315,13 @@ function showNotionStatus(status, msg) {
   };
   badge.textContent = (labels[status] || status) + (msg ? `（${msg}）` : '');
   badge.style.background = colors[status] || 'var(--bg3)';
+
+  // 接続済みはページID入力を隠して読み込みボタンのみ表示
+  const isConnected = (status === 'ok');
+  const form    = document.getElementById('notionConnectForm');
+  const actions = document.getElementById('notionConnectedActions');
+  if (form)    form.style.display    = isConnected ? 'none'  : 'block';
+  if (actions) actions.style.display = isConnected ? 'flex'  : 'none';
 }
 
 async function connectNotion() {
