@@ -2402,13 +2402,28 @@ async function syncNotion() {
   }
 }
 
-/** Notionのタスクでローカルを置き換え（Notionがマスター） */
+/** NotionのタスクをEJECTORに反映（初回は置換、2回目以降はマージ） */
 function loadNotionTasks(remoteTasks) {
-  // Notion由来でないローカルタスク（起床・就寝など）を保持
-  const localOnly = state.tasks.filter(t => (t.isWakeUp || t.isSleep) && !t._notionPageId);
+  const hasExistingNotionTasks = state.tasks.some(t => t._notionPageId);
 
-  // Notionのタスクをローカルに読み込み
-  state.tasks = [...localOnly, ...remoteTasks.filter(t => t.id)];
+  if (!hasExistingNotionTasks) {
+    // 初回同期: 起床・就寝以外を置換（Notionをマスターとして取り込む）
+    const wakeSleep = state.tasks.filter(t => t.isWakeUp || t.isSleep);
+    state.tasks = [...wakeSleep, ...remoteTasks.filter(t => t.id)];
+  } else {
+    // 2回目以降: マージ（既存のスケジュール情報を保持しつつNotionの変更を反映）
+    const remoteMap = new Map(remoteTasks.map(t => [t._notionPageId, t]));
+    // Notion由来でないタスク（手動作成・起床・就寝）はそのまま保持
+    const nonNotion = state.tasks.filter(t => !t._notionPageId);
+    // 既存のNotionタスクを更新（時刻・長さはローカルを優先）
+    const updatedNotion = state.tasks
+      .filter(t => t._notionPageId && remoteMap.has(t._notionPageId))
+      .map(t => ({ ...remoteMap.get(t._notionPageId), start: t.start, duration: t.duration, allocated: t.allocated }));
+    // Notionに新規追加されたタスクを追加
+    const seenIds = new Set(updatedNotion.map(t => t._notionPageId));
+    const newNotion = remoteTasks.filter(t => t.id && !seenIds.has(t._notionPageId));
+    state.tasks = [...nonNotion, ...updatedNotion, ...newNotion];
+  }
 }
 
 /** タスクの完了状態をNotionへ書き戻す */
@@ -5200,9 +5215,10 @@ window.onload = async () => {
     await pullFromBin();
   }
 
-  // Notion接続済みなら状態表示
+  // Notion接続済みなら自動同期（ページロード時）
   if (notionCfg.databaseId) {
     showNotionStatus('ok', `DB: ${notionCfg.databaseId.slice(0,8)}...`);
+    syncNotion(); // バックグラウンドで非同期実行
   }
 
   renderAll();
