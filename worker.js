@@ -294,38 +294,42 @@ async function notionPullAllTasks(token, databaseId) {
   return tasks;
 }
 
-/** EJECTORタスクをNotionへ同期する */
+/** EJECTORタスクをNotionへ同期する（ユーザーDBのプロパティ名に合わせてマッピング） */
 async function notionPushTasks(token, databaseId, tasks) {
-  let created = 0, updated = 0;
+  const created = [];
   for (const task of tasks) {
+    // start（分）を HH:MM 形式に変換
+    const startMin = task.start ?? 9 * 60;
+    const hh = String(Math.floor(startMin / 60)).padStart(2, '0');
+    const mm = String(startMin % 60).padStart(2, '0');
+    const startStr = task.allocated ? `${hh}:${mm}` : '';
+
+    // 今日の日付（JST）
+    const jstNow = new Date(Date.now() + 9 * 3600 * 1000);
+    const todayISO = jstNow.toISOString().slice(0, 10);
+
+    // タイトルを動的に取得するためのプロパティ（後でDBのタイトルカラムに設定）
+    const titleContent = task.name || '';
+
     const props = {
-      'Name':      { title: [{ text: { content: task.name || '' } }] },
-      'Start':     { number: task.start ?? null },
-      'Duration':  { number: task.duration ?? 30 },
-      'Done':      { checkbox: (task.doneDates || []).length > 0 },
-      'DoneDates': { rich_text: [{ text: { content: JSON.stringify(task.doneDates || []) } }] },
+      // タイトル（Title型プロパティ名は "名前" が一般的だがNotionが自動判別）
+      '名前':          { title: [{ text: { content: titleContent } }] },
+      '実行予定日':    { date: { start: todayISO } },
+      '予定時間（分）': { number: task.duration ?? 30 },
     };
-    if (task.category) props['Category'] = { select: { name: task.category } };
-    if (task.memo)     props['Memo']     = { rich_text: [{ text: { content: task.memo } }] };
-    if (task._notionPageId) {
-      const res = await fetch(`${NOTION_API}/pages/${task._notionPageId}`, {
-        method: 'PATCH',
-        headers: notionHeaders(token),
-        body: JSON.stringify({ properties: props }),
-      });
-      if (!res.ok) throw new Error(`Notion update error ${res.status}: ${await res.text()}`);
-      updated++;
-    } else {
-      const res = await fetch(`${NOTION_API}/pages`, {
-        method: 'POST',
-        headers: notionHeaders(token),
-        body: JSON.stringify({ parent: { type: 'database_id', database_id: databaseId }, properties: props }),
-      });
-      if (!res.ok) throw new Error(`Notion create error ${res.status}: ${await res.text()}`);
-      created++;
-    }
+    if (startStr)      props['開始時刻'] = { rich_text: [{ text: { content: startStr } }] };
+    if (task.category) props['仕分け']   = { select: { name: task.category } };
+
+    const res = await fetch(`${NOTION_API}/pages`, {
+      method: 'POST',
+      headers: notionHeaders(token),
+      body: JSON.stringify({ parent: { type: 'database_id', database_id: databaseId }, properties: props }),
+    });
+    if (!res.ok) throw new Error(`Notion create error ${res.status}: ${await res.text()}`);
+    const page = await res.json();
+    created.push({ ejectorId: task.id, notionPageId: page.id });
   }
-  return { created, updated };
+  return { created };
 }
 
 // ═══════════════════════════════════════════════════════
