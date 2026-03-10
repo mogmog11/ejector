@@ -296,29 +296,41 @@ async function notionPullAllTasks(token, databaseId) {
 
 /** EJECTORタスクをNotionへ同期する（ユーザーDBのプロパティ名に合わせてマッピング） */
 async function notionPushTasks(token, databaseId, tasks) {
+  // DBスキーマを取得してタイトルプロパティ名と書き込み可能プロパティを確認
+  const dbRes = await fetch(`${NOTION_API}/databases/${databaseId}`, { headers: notionHeaders(token) });
+  if (!dbRes.ok) throw new Error(`DB schema fetch error ${dbRes.status}`);
+  const dbSchema = await dbRes.json();
+  const schemaProps = dbSchema.properties || {};
+
+  // タイトルプロパティ名を動的に取得
+  let titlePropName = '名前';
+  for (const [name, prop] of Object.entries(schemaProps)) {
+    if (prop.type === 'title') { titlePropName = name; break; }
+  }
+
+  // 書き込み可能なプロパティかチェック（formula/rollup/unique_id/created_by等は読み取り専用）
+  const READONLY_TYPES = new Set(['formula', 'rollup', 'unique_id', 'created_by', 'created_time', 'last_edited_by', 'last_edited_time']);
+  const isWritable = (name) => schemaProps[name] && !READONLY_TYPES.has(schemaProps[name].type);
+
+  // 今日の日付（JST）
+  const jstNow = new Date(Date.now() + 9 * 3600 * 1000);
+  const todayISO = jstNow.toISOString().slice(0, 10);
+
   const created = [];
   for (const task of tasks) {
-    // start（分）を HH:MM 形式に変換
-    const startMin = task.start ?? 9 * 60;
-    const hh = String(Math.floor(startMin / 60)).padStart(2, '0');
-    const mm = String(startMin % 60).padStart(2, '0');
-    const startStr = task.allocated ? `${hh}:${mm}` : '';
-
-    // 今日の日付（JST）
-    const jstNow = new Date(Date.now() + 9 * 3600 * 1000);
-    const todayISO = jstNow.toISOString().slice(0, 10);
-
-    // タイトルを動的に取得するためのプロパティ（後でDBのタイトルカラムに設定）
-    const titleContent = task.name || '';
-
     const props = {
-      // タイトル（Title型プロパティ名は "名前" が一般的だがNotionが自動判別）
-      '名前':          { title: [{ text: { content: titleContent } }] },
-      '実行予定日':    { date: { start: todayISO } },
-      '予定時間（分）': { number: task.duration ?? 30 },
+      [titlePropName]: { title: [{ text: { content: task.name || '' } }] },
     };
-    if (startStr)      props['開始時刻'] = { rich_text: [{ text: { content: startStr } }] };
-    if (task.category) props['仕分け']   = { select: { name: task.category } };
+    if (isWritable('実行予定日'))  props['実行予定日']    = { date: { start: todayISO } };
+    if (isWritable('予定時間（分）')) props['予定時間（分）'] = { number: task.duration ?? 30 };
+    if (task.category && isWritable('仕分け')) props['仕分け'] = { select: { name: task.category } };
+
+    // 開始時刻（テキスト型の場合のみ書き込み）
+    if (task.allocated && isWritable('開始時刻') && schemaProps['開始時刻']?.type === 'rich_text') {
+      const hh = String(Math.floor((task.start ?? 540) / 60)).padStart(2, '0');
+      const mm = String((task.start ?? 540) % 60).padStart(2, '0');
+      props['開始時刻'] = { rich_text: [{ text: { content: `${hh}:${mm}` } }] };
+    }
 
     const res = await fetch(`${NOTION_API}/pages`, {
       method: 'POST',
