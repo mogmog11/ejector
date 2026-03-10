@@ -2374,20 +2374,38 @@ async function syncNotion() {
   }
   showNotionStatus('syncing');
   try {
-    // Notionからタスクを取得（読み込み専用）
+    // ① EJECTORで新規作成したタスク（_notionPageId なし・起床就寝除く）をNotionへ送信
+    const newLocalTasks = state.tasks.filter(t => !t._notionPageId && !t.isWakeUp && !t.isSleep);
+    if (newLocalTasks.length > 0) {
+      const pushRes = await fetch(syncCfg.workerUrl + '/notion/push', {
+        method: 'POST',
+        headers: cfHeaders(),
+        body: JSON.stringify({ databaseId: notionCfg.databaseId, tasks: newLocalTasks }),
+      });
+      if (pushRes.ok) {
+        const pushData = await pushRes.json();
+        // 返ってきた NotionページIDをタスクに保存
+        if (pushData.created) {
+          pushData.created.forEach(({ ejectorId, notionPageId }) => {
+            const t = state.tasks.find(t => t.id === ejectorId);
+            if (t) t._notionPageId = notionPageId;
+          });
+        }
+      }
+    }
+
+    // ② Notionから今日のタスクを取得
     const pullRes = await fetch(syncCfg.workerUrl + '/notion/pull', {
       method: 'POST',
       headers: cfHeaders(),
-      body: JSON.stringify({
-        databaseId: notionCfg.databaseId,
-      }),
+      body: JSON.stringify({ databaseId: notionCfg.databaseId }),
     });
     if (!pullRes.ok) throw new Error(`Pull HTTP ${pullRes.status}`);
     const pullData = await pullRes.json();
     if (pullData.error) throw new Error(pullData.error);
     const remoteTasks = pullData.tasks || [];
 
-    // Notionのタスクでローカルを上書き（Notionがマスター）
+    // ③ Notionタスクをローカルに反映
     loadNotionTasks(remoteTasks);
 
     saveToLocal();
@@ -2404,15 +2422,23 @@ async function syncNotion() {
 
 /** NotionのタスクをEJECTORに反映（初回は置換、2回目以降はマージ） */
 function loadNotionTasks(remoteTasks) {
+  // Workerからのタスクに正しい日付キーをセット（integerの0はYYYYMMDD形式に変換）
+  const dk = offsetToDateKey(0); // 今日の日付キー (例: 20260310)
+  const fixed = remoteTasks.map(t => ({
+    ...t,
+    allocatedOffset: dk,
+    createdOffset:   dk,
+  }));
+
   const hasExistingNotionTasks = state.tasks.some(t => t._notionPageId);
 
   if (!hasExistingNotionTasks) {
     // 初回同期: 起床・就寝以外を置換（Notionをマスターとして取り込む）
     const wakeSleep = state.tasks.filter(t => t.isWakeUp || t.isSleep);
-    state.tasks = [...wakeSleep, ...remoteTasks.filter(t => t.id)];
+    state.tasks = [...wakeSleep, ...fixed.filter(t => t.id)];
   } else {
     // 2回目以降: マージ（既存のスケジュール情報を保持しつつNotionの変更を反映）
-    const remoteMap = new Map(remoteTasks.map(t => [t._notionPageId, t]));
+    const remoteMap = new Map(fixed.map(t => [t._notionPageId, t]));
     // Notion由来でないタスク（手動作成・起床・就寝）はそのまま保持
     const nonNotion = state.tasks.filter(t => !t._notionPageId);
     // 既存のNotionタスクを更新（時刻・長さはローカルを優先）
@@ -2421,7 +2447,7 @@ function loadNotionTasks(remoteTasks) {
       .map(t => ({ ...remoteMap.get(t._notionPageId), start: t.start, duration: t.duration, allocated: t.allocated }));
     // Notionに新規追加されたタスクを追加
     const seenIds = new Set(updatedNotion.map(t => t._notionPageId));
-    const newNotion = remoteTasks.filter(t => t.id && !seenIds.has(t._notionPageId));
+    const newNotion = fixed.filter(t => t.id && !seenIds.has(t._notionPageId));
     state.tasks = [...nonNotion, ...updatedNotion, ...newNotion];
   }
 }
