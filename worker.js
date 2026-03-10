@@ -168,6 +168,133 @@ export default {
 };
 
 // ═══════════════════════════════════════════════════════
+//  Notion API ヘルパー
+// ═══════════════════════════════════════════════════════
+const NOTION_API = 'https://api.notion.com/v1';
+
+function notionHeaders(token) {
+  return {
+    'Authorization':  `Bearer ${token}`,
+    'Notion-Version': '2022-06-28',
+    'Content-Type':   'application/json',
+  };
+}
+
+/** ページの子ブロックから "EJECTOR Tasks" データベースを探す */
+async function notionFindDatabase(token, pageId) {
+  const res = await fetch(`${NOTION_API}/blocks/${pageId}/children`, {
+    headers: notionHeaders(token),
+  });
+  if (!res.ok) throw new Error(`Notion error ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  for (const block of data.results || []) {
+    if (block.type === 'child_database' && block.child_database?.title === 'EJECTOR Tasks') {
+      return block.id;
+    }
+  }
+  return null;
+}
+
+/** "EJECTOR Tasks" データベースを新規作成する */
+async function notionCreateDatabase(token, pageId) {
+  const res = await fetch(`${NOTION_API}/databases`, {
+    method: 'POST',
+    headers: notionHeaders(token),
+    body: JSON.stringify({
+      parent: { type: 'page_id', page_id: pageId },
+      title: [{ type: 'text', text: { content: 'EJECTOR Tasks' } }],
+      properties: {
+        'Name':      { title: {} },
+        'Date':      { date: {} },
+        'Start':     { number: { format: 'number' } },
+        'Duration':  { number: { format: 'number' } },
+        'Done':      { checkbox: {} },
+        'DoneDates': { rich_text: {} },
+        'Category':  { select: {} },
+        'Memo':      { rich_text: {} },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`Notion create DB error ${res.status}: ${await res.text()}`);
+  return await res.json();
+}
+
+/** データベースの全タスクを取得してEJECTOR形式に変換する */
+async function notionPullAllTasks(token, databaseId) {
+  const tasks = [];
+  let cursor;
+  do {
+    const body = { page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+    const res = await fetch(`${NOTION_API}/databases/${databaseId}/query`, {
+      method: 'POST',
+      headers: notionHeaders(token),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Notion query error ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    for (const page of data.results || []) {
+      const p = page.properties || {};
+      const name = (p.Name?.title || []).map(t => t.plain_text).join('');
+      if (!name) continue;
+      const start    = typeof p.Start?.number === 'number' ? p.Start.number : null;
+      const duration = p.Duration?.number || 30;
+      const doneDatesRaw = (p.DoneDates?.rich_text || []).map(t => t.plain_text).join('');
+      let doneDates = [];
+      try { doneDates = JSON.parse(doneDatesRaw); } catch {}
+      tasks.push({
+        id:            page.id.replace(/-/g, ''),
+        _notionPageId: page.id,
+        name,
+        allocated:     start !== null,
+        start:         start ?? 9 * 60,
+        duration,
+        category:      p.Category?.select?.name || '',
+        memo:          (p.Memo?.rich_text || []).map(t => t.plain_text).join(''),
+        doneDates,
+        createdOffset: 0,
+      });
+    }
+    cursor = data.has_more ? data.next_cursor : null;
+  } while (cursor);
+  return tasks;
+}
+
+/** EJECTORタスクをNotionへ同期する */
+async function notionPushTasks(token, databaseId, tasks) {
+  let created = 0, updated = 0;
+  for (const task of tasks) {
+    const props = {
+      'Name':      { title: [{ text: { content: task.name || '' } }] },
+      'Start':     { number: task.start ?? null },
+      'Duration':  { number: task.duration ?? 30 },
+      'Done':      { checkbox: (task.doneDates || []).length > 0 },
+      'DoneDates': { rich_text: [{ text: { content: JSON.stringify(task.doneDates || []) } }] },
+    };
+    if (task.category) props['Category'] = { select: { name: task.category } };
+    if (task.memo)     props['Memo']     = { rich_text: [{ text: { content: task.memo } }] };
+    if (task._notionPageId) {
+      const res = await fetch(`${NOTION_API}/pages/${task._notionPageId}`, {
+        method: 'PATCH',
+        headers: notionHeaders(token),
+        body: JSON.stringify({ properties: props }),
+      });
+      if (!res.ok) throw new Error(`Notion update error ${res.status}: ${await res.text()}`);
+      updated++;
+    } else {
+      const res = await fetch(`${NOTION_API}/pages`, {
+        method: 'POST',
+        headers: notionHeaders(token),
+        body: JSON.stringify({ parent: { type: 'database_id', database_id: databaseId }, properties: props }),
+      });
+      if (!res.ok) throw new Error(`Notion create error ${res.status}: ${await res.text()}`);
+      created++;
+    }
+  }
+  return { created, updated };
+}
+
+// ═══════════════════════════════════════════════════════
 //  通知ロジック
 // ═══════════════════════════════════════════════════════
 async function checkAndPushNotifications(env) {
