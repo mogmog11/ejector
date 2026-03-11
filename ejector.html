@@ -2447,6 +2447,15 @@ function loadNotionTasks(remoteTasks) {
     createdOffset:   dk,
   }));
 
+  // doneDatesをローカルとNotionの論理和でマージ（どちらかが完了なら完了）
+  const mergeDoneDates = (localDates, remoteDates) => {
+    const merged = [...(localDates || [])];
+    for (const d of (remoteDates || [])) {
+      if (!merged.includes(d)) merged.push(d);
+    }
+    return merged;
+  };
+
   const hasExistingNotionTasks = state.tasks.some(t => t._notionPageId);
 
   if (!hasExistingNotionTasks) {
@@ -2458,10 +2467,14 @@ function loadNotionTasks(remoteTasks) {
     const remoteMap = new Map(fixed.map(t => [t._notionPageId, t]));
     // Notion由来でないタスク（手動作成・起床・就寝）はそのまま保持
     const nonNotion = state.tasks.filter(t => !t._notionPageId);
-    // 既存のNotionタスクを更新（時刻・長さはローカルを優先）
+    // 既存のNotionタスクを更新（時刻・長さ・完了状態はローカルとNotionの論理和）
     const updatedNotion = state.tasks
       .filter(t => t._notionPageId && remoteMap.has(t._notionPageId))
-      .map(t => ({ ...remoteMap.get(t._notionPageId), start: t.start, duration: t.duration, allocated: t.allocated, doneDates: t.doneDates }));
+      .map(t => {
+        const remote = remoteMap.get(t._notionPageId);
+        return { ...remote, start: t.start, duration: t.duration, allocated: t.allocated,
+                 doneDates: mergeDoneDates(t.doneDates, remote.doneDates) };
+      });
     // Notionに新規追加されたタスクを追加
     const seenIds = new Set(updatedNotion.map(t => t._notionPageId));
     const newNotion = fixed.filter(t => t.id && !seenIds.has(t._notionPageId));
@@ -2475,7 +2488,7 @@ async function pushDoneToNotion(task) {
   const dk = offsetToDateKey(currentDayOffset);
   const isDone = task.doneDates && task.doneDates.includes(dk);
   try {
-    await fetch(syncCfg.workerUrl + '/notion/update', {
+    const res = await fetch(syncCfg.workerUrl + '/notion/update', {
       method: 'PATCH',
       headers: cfHeaders(),
       body: JSON.stringify({
@@ -2485,8 +2498,14 @@ async function pushDoneToNotion(task) {
         },
       }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('Notion status update failed:', res.status, err);
+      showToast(`Notion更新エラー: ${err.error || res.status}`);
+    }
   } catch(e) {
     console.error('Notion done sync error:', e);
+    showToast('Notion同期エラー（ネットワーク）');
   }
 }
 
