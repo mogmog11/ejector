@@ -2469,9 +2469,11 @@ function loadNotionTasks(remoteTasks) {
   }
 }
 
-/** タスクの完了状態をNotionへ書き戻す */
+/** タスクの完了状態をNotionのステータスへ書き戻す */
 async function pushDoneToNotion(task) {
   if (!notionCfg.databaseId || !syncCfg.workerUrl || !task._notionPageId) return;
+  const dk = offsetToDateKey(currentDayOffset);
+  const isDone = task.doneDates && task.doneDates.includes(dk);
   try {
     await fetch(syncCfg.workerUrl + '/notion/update', {
       method: 'PATCH',
@@ -2479,7 +2481,7 @@ async function pushDoneToNotion(task) {
       body: JSON.stringify({
         pageId: task._notionPageId,
         properties: {
-          'DoneDates': { rich_text: [{ text: { content: JSON.stringify(task.doneDates || []) } }] },
+          'ステータス': { status: { name: isDone ? '完了' : '未着手' } },
         },
       }),
     });
