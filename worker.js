@@ -276,7 +276,7 @@ async function notionPullAllTasks(token, databaseId) {
       const category = p['仕分け']?.select?.name || p['仕分け']?.multi_select?.[0]?.name || '';
 
       tasks.push({
-        id:              page.id.replace(/-/g, ''),
+        id:              parseInt(page.id.replace(/-/g, '').substring(0, 10), 16),
         _notionPageId:   page.id,
         title:           name,   // EJECTORは task.title を使用（name ではない）
         allocated:       start !== null,

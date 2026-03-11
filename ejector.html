@@ -2461,7 +2461,7 @@ function loadNotionTasks(remoteTasks) {
     // 既存のNotionタスクを更新（時刻・長さはローカルを優先）
     const updatedNotion = state.tasks
       .filter(t => t._notionPageId && remoteMap.has(t._notionPageId))
-      .map(t => ({ ...remoteMap.get(t._notionPageId), start: t.start, duration: t.duration, allocated: t.allocated }));
+      .map(t => ({ ...remoteMap.get(t._notionPageId), start: t.start, duration: t.duration, allocated: t.allocated, doneDates: t.doneDates }));
     // Notionに新規追加されたタスクを追加
     const seenIds = new Set(updatedNotion.map(t => t._notionPageId));
     const newNotion = fixed.filter(t => t.id && !seenIds.has(t._notionPageId));
