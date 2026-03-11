@@ -258,25 +258,34 @@ async function notionPullAllTasks(token, databaseId) {
       }
       if (!name) continue;
 
-      // 開始時刻をパース（テキスト or フォーミュラで "HH:MM" 形式）
+      // 開始時刻をパース（date / rich_text / formula の各型に対応）
       let start = null;
       const startProp = p['開始時刻'];
       if (startProp) {
         let timeStr = '';
-        if (startProp.type === 'rich_text')  timeStr = (startProp.rich_text || []).map(t => t.plain_text).join('');
+        if (startProp.type === 'date')       timeStr = startProp.date?.start || '';
+        else if (startProp.type === 'rich_text')  timeStr = (startProp.rich_text || []).map(t => t.plain_text).join('');
         else if (startProp.type === 'formula') timeStr = startProp.formula?.string || '';
-        const m = timeStr.match(/^(\d{1,2}):(\d{2})/);
+        const m = timeStr.match(/(\d{1,2}):(\d{2})/);
         if (m) start = parseInt(m[1]) * 60 + parseInt(m[2]);
       }
 
-      // 予定時間（分）→ duration
-      const duration = p['予定時間（分）']?.number || 30;
+      // 終了時刻をパースして duration を計算（date 型）
+      let duration = p['予定時間（分）']?.number || 30;
+      const endProp = p['終了時刻'];
+      if (endProp?.type === 'date' && endProp.date?.start) {
+        const m = endProp.date.start.match(/(\d{1,2}):(\d{2})/);
+        if (m) {
+          const end = parseInt(m[1]) * 60 + parseInt(m[2]);
+          if (start !== null && end > start) duration = end - start;
+        }
+      }
 
       // 仕分け → category（select / multi_select 両対応）
       const category = p['仕分け']?.select?.name || p['仕分け']?.multi_select?.[0]?.name || '';
 
       tasks.push({
-        id:              page.id.replace(/-/g, ''),
+        id:              parseInt(page.id.replace(/-/g, '').substring(0, 10), 16),
         _notionPageId:   page.id,
         title:           name,   // EJECTORは task.title を使用（name ではない）
         allocated:       start !== null,
