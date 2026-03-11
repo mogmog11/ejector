@@ -284,6 +284,11 @@ async function notionPullAllTasks(token, databaseId) {
       // 仕分け → category（select / multi_select 両対応）
       const category = p['仕分け']?.select?.name || p['仕分け']?.multi_select?.[0]?.name || '';
 
+      // ステータスが「完了」なら今日の日付キーをdoneDatesに設定
+      const statusName = p['ステータス']?.status?.name || '';
+      const jstDateKey = jstNow.getUTCFullYear() * 10000 + (jstNow.getUTCMonth() + 1) * 100 + jstNow.getUTCDate();
+      const doneDates  = statusName === '完了' ? [jstDateKey] : [];
+
       tasks.push({
         id:              parseInt(page.id.replace(/-/g, '').substring(0, 10), 16),
         _notionPageId:   page.id,
@@ -294,7 +299,7 @@ async function notionPullAllTasks(token, databaseId) {
         category,
         repeatMode:      'none', // 繰り返しなし（未設定だと繰り返しタスク扱いになる）
         memo:            '',
-        doneDates:       [],
+        doneDates,
         createdOffset:   0,
         allocatedOffset: 0,
       });
