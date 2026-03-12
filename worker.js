@@ -10,7 +10,7 @@ const VAPID_SUBJECT     = 'mailto:ejector-app@example.com';
 // ── CORS ──────────────────────────────────────────────
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, PUT, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, PUT, POST, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, X-Secret',
 };
 const cors  = (body, status = 200, extra = {}) =>

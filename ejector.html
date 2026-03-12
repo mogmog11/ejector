@@ -2417,7 +2417,10 @@ async function syncNotion() {
       headers: cfHeaders(),
       body: JSON.stringify({ databaseId: notionCfg.databaseId }),
     });
-    if (!pullRes.ok) throw new Error(`Pull HTTP ${pullRes.status}`);
+    if (!pullRes.ok) {
+      const errBody = await pullRes.json().catch(() => ({}));
+      throw new Error(errBody.error || `Pull HTTP ${pullRes.status}`);
+    }
     const pullData = await pullRes.json();
     if (pullData.error) throw new Error(pullData.error);
     const remoteTasks = pullData.tasks || [];
