@@ -20,6 +20,7 @@ const json  = (obj,  status = 200) =>
 
 // ── Auth ──────────────────────────────────────────────
 async function checkAuth(request, env) {
+  if (!env.KV) return true; // KV未設定時はシークレット検証をスキップ
   const secret = request.headers.get('X-Secret') || '';
   const stored = await env.KV.get('__secret__');
   if (stored && stored !== secret) return false;
@@ -47,7 +48,6 @@ export default {
 };
 
 async function handleRequest(request, env) {
-    if (!env.KV) return json({ error: 'KV binding not configured' }, 500);
     if (!await checkAuth(request, env)) return cors('Unauthorized', 401);
 
     const url = new URL(request.url);
