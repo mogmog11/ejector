@@ -277,11 +277,27 @@ async function notionPullAllTasks(token, databaseId) {
         if (m) start = parseInt(m[1]) * 60 + parseInt(m[2]);
       }
 
+      // 開始時刻が未設定なら「実行予定日」の時刻を使用
+      const execDateProp = p['実行予定日'];
+      if (start === null && execDateProp?.type === 'date' && execDateProp.date?.start) {
+        const m = execDateProp.date.start.match(/T(\d{2}):(\d{2})/);
+        if (m) start = parseInt(m[1]) * 60 + parseInt(m[2]);
+      }
+
       // 終了時刻をパースして duration を計算（date 型）
       let duration = p['予定時間（分）']?.number || 30;
       const endProp = p['終了時刻'];
       if (endProp?.type === 'date' && endProp.date?.start) {
         const m = endProp.date.start.match(/(\d{1,2}):(\d{2})/);
+        if (m) {
+          const end = parseInt(m[1]) * 60 + parseInt(m[2]);
+          if (start !== null && end > start) duration = end - start;
+        }
+      }
+
+      // 終了時刻も未設定なら「実行予定日」の end 時刻を使用
+      if (execDateProp?.type === 'date' && execDateProp.date?.end) {
+        const m = execDateProp.date.end.match(/T(\d{2}):(\d{2})/);
         if (m) {
           const end = parseInt(m[1]) * 60 + parseInt(m[2]);
           if (start !== null && end > start) duration = end - start;
