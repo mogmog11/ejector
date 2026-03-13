@@ -2129,7 +2129,15 @@ function saveToLocal() {
 function loadFromLocal() {
   try {
     const s = localStorage.getItem('ejector_tasks');
-    if (s) state.tasks = JSON.parse(s);
+    if (s) {
+      state.tasks = JSON.parse(s);
+      // 旧Notion hex文字列IDを数値IDへ移行（worker.js修正前に保存されたデータ対応）
+      state.tasks.forEach(t => {
+        if (t._notionPageId && typeof t.id === 'string' && t.id.length > 13) {
+          t.id = parseInt(t.id.substring(0, 10), 16);
+        }
+      });
+    }
   } catch(e) { /* デフォルトを使用 */ }
 }
 
@@ -4235,12 +4243,8 @@ function switchTab(tab) {
   if (pcBtn) pcBtn.classList.add('active');
 
   if (tab === 'later') {
-    if (isMobile) {
-      app.classList.add('show-later');
-    } else {
-      // PC: 追加パネルの「あとで」タブに切り替え
-      switchAddMode('later');
-    }
+    app.classList.add('show-later');
+    renderLaterList();
     btns[1].classList.add('active');
   } else if (tab === 'input') {
     if (isMobile) {
