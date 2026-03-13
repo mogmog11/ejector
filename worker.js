@@ -33,6 +33,21 @@ async function checkAuth(request, env) {
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+    try {
+      return await handleRequest(request, env);
+    } catch(e) {
+      console.error('Worker unhandled error:', e);
+      return json({ error: e.message }, 500);
+    }
+  },
+
+  async scheduled(event, env) {
+    await checkAndPushNotifications(env);
+  },
+};
+
+async function handleRequest(request, env) {
+    if (!env.KV) return json({ error: 'KV binding not configured' }, 500);
     if (!await checkAuth(request, env)) return cors('Unauthorized', 401);
 
     const url = new URL(request.url);
@@ -157,15 +172,7 @@ export default {
     }
 
     return cors('Not found', 404);
-  },
-
-  // ═══════════════════════════════════════════════════
-  //  CRON ハンドラ（毎分実行）
-  // ═══════════════════════════════════════════════════
-  async scheduled(event, env) {
-    await checkAndPushNotifications(env);
-  }
-};
+}
 
 // ═══════════════════════════════════════════════════════
 //  Notion API ヘルパー
