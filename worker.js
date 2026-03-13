@@ -136,6 +136,20 @@ export default {
       }
     }
 
+    // ── Notion重複タスク削除: POST /notion/dedup ─────
+    if (path === '/notion/dedup' && request.method === 'POST') {
+      const notionToken = env.NOTION_TOKEN;
+      if (!notionToken) return json({ error: 'NOTION_TOKEN not configured in Worker environment' }, 500);
+      const { databaseId } = await request.json();
+      if (!databaseId) return json({ error: 'databaseId required' }, 400);
+      try {
+        const result = await notionDedupTasks(notionToken, databaseId);
+        return json({ ok: true, ...result });
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
     // ── Notion単一タスク更新: PATCH /notion/update ───
     // タスク完了時などにNotionへ書き戻す
     if (path === '/notion/update' && request.method === 'PATCH') {
@@ -307,6 +321,66 @@ async function notionPullAllTasks(token, databaseId) {
     cursor = data.has_more ? data.next_cursor : null;
   } while (cursor);
   return tasks;
+}
+
+/** Notionデータベースの重複タスク（同じタイトル・今日の日付）をアーカイブして削除する */
+async function notionDedupTasks(token, databaseId) {
+  const pages = [];
+  let cursor;
+
+  // 今日の日付（JST）
+  const jstNow = new Date(Date.now() + 9 * 3600 * 1000);
+  const today  = jstNow.toISOString().slice(0, 10);
+
+  // 今日のタスクを全件取得
+  do {
+    const body = {
+      page_size: 100,
+      filter: { property: '実行予定日', date: { equals: today } },
+    };
+    if (cursor) body.start_cursor = cursor;
+    const res = await fetch(`${NOTION_API}/databases/${databaseId}/query`, {
+      method: 'POST',
+      headers: notionHeaders(token),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Notion query error ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    for (const page of data.results || []) {
+      if (!page.archived) pages.push(page);
+    }
+    cursor = data.has_more ? data.next_cursor : null;
+  } while (cursor);
+
+  // タイトルでグループ化
+  const byTitle = new Map();
+  for (const page of pages) {
+    let title = '';
+    for (const val of Object.values(page.properties || {})) {
+      if (val.type === 'title') { title = (val.title || []).map(t => t.plain_text).join(''); break; }
+    }
+    if (!title) continue;
+    if (!byTitle.has(title)) byTitle.set(title, []);
+    byTitle.get(title).push(page);
+  }
+
+  // 重複があれば最終編集日時が新しい1件を残し、残りをアーカイブ
+  let archived = 0;
+  for (const [, group] of byTitle) {
+    if (group.length <= 1) continue;
+    group.sort((a, b) => new Date(b.last_edited_time) - new Date(a.last_edited_time));
+    for (const page of group.slice(1)) {
+      const res = await fetch(`${NOTION_API}/pages/${page.id}`, {
+        method: 'PATCH',
+        headers: notionHeaders(token),
+        body: JSON.stringify({ archived: true }),
+      });
+      if (!res.ok) throw new Error(`Archive error ${res.status}: ${await res.text()}`);
+      archived++;
+    }
+  }
+
+  return { archived, total: pages.length };
 }
 
 /** EJECTORタスクをNotionへ同期する（ユーザーDBのプロパティ名に合わせてマッピング） */

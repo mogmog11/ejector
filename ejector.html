@@ -2003,9 +2003,12 @@ function base64ToBytes(b64) {
           <button onclick="connectNotion()" style="flex:2; padding:10px; background:var(--green); color:white; border-radius:10px; font-weight:700; font-size:13px;">接続する</button>
         </div>
       </div>
-      <div id="notionConnectedActions" style="display:none; gap:8px; margin-top:10px;">
-        <button onclick="disconnectNotion()" style="flex:1; padding:10px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700; font-size:13px;">切断</button>
-        <button onclick="syncNotion()" style="flex:2; padding:10px; background:var(--blue); color:white; border-radius:10px; font-weight:700; font-size:13px;">🔄 今日のタスクを読み込む</button>
+      <div id="notionConnectedActions" style="display:none; gap:8px; margin-top:10px; flex-direction:column;">
+        <div style="display:flex; gap:8px;">
+          <button onclick="disconnectNotion()" style="flex:1; padding:10px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700; font-size:13px;">切断</button>
+          <button onclick="syncNotion()" style="flex:2; padding:10px; background:var(--blue); color:white; border-radius:10px; font-weight:700; font-size:13px;">🔄 今日のタスクを読み込む</button>
+        </div>
+        <button onclick="dedupNotion()" style="width:100%; padding:10px; color:var(--red); border:1px solid var(--border); border-radius:10px; font-weight:700; font-size:13px;">🗑 重複タスクを削除</button>
       </div>
     </div>
 
@@ -2383,6 +2386,25 @@ function disconnectNotion() {
   showNotionStatus('off');
 }
 
+async function dedupNotion() {
+  if (!notionCfg.databaseId || !syncCfg.workerUrl) return;
+  if (!confirm('Notionデータベースの今日の重複タスクを削除します。よろしいですか？')) return;
+  showNotionStatus('syncing', '重複削除中...');
+  try {
+    const res = await fetch(syncCfg.workerUrl + '/notion/dedup', {
+      method: 'POST',
+      headers: cfHeaders(),
+      body: JSON.stringify({ databaseId: notionCfg.databaseId }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+    showNotionStatus('ok', `重複${data.archived}件を削除`);
+    if (data.archived > 0) await syncNotion();
+  } catch(e) {
+    showNotionStatus('error', e.message);
+  }
+}
+
 async function syncNotion() {
   if (!notionCfg.databaseId || !syncCfg.workerUrl) {
     showNotionStatus('off');
@@ -2487,6 +2509,15 @@ function loadNotionTasks(remoteTasks) {
     const newNotion = fixed.filter(t => t.id && !seenIds.has(t._notionPageId));
     state.tasks = [...nonNotion, ...updatedNotion, ...newNotion];
   }
+
+  // 重複を除去: 同じ_notionPageIdを持つタスクは最初の1件のみ保持
+  const seenNPids = new Set();
+  state.tasks = state.tasks.filter(t => {
+    if (!t._notionPageId) return true;
+    if (seenNPids.has(t._notionPageId)) return false;
+    seenNPids.add(t._notionPageId);
+    return true;
+  });
 }
 
 /** タスクの完了状態をNotionのステータスへ書き戻す */
