@@ -994,7 +994,7 @@ details summary { cursor: pointer; font-weight: 700; padding: 6px 0; color: var(
         <!-- ヘッダー＆フィルターバー -->
         <div style="padding:12px 16px 8px; flex-shrink:0; border-bottom:1px solid var(--border);">
           <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-            <div style="font-weight:700; font-size:15px;">📋 あとでリスト</div>
+            <div style="font-weight:700; font-size:15px; white-space:nowrap; flex-shrink:0;">📋 あとでリスト</div>
             <div style="display:flex; gap:6px; align-items:center;">
               <span id="laterCount" style="font-size:11px; color:var(--ink4); font-weight:700;"></span>
               <button onclick="autoSchedule()" title="空き時間にタスクを自動配置"
@@ -2480,6 +2480,7 @@ function loadNotionTasks(remoteTasks) {
       .map(t => {
         const remote = remoteMap.get(t._notionPageId);
         return { ...remote, start: t.start, duration: t.duration, allocated: t.allocated,
+                 taskType: t.taskType,
                  doneDates: mergeDoneDates(t.doneDates, remote.doneDates) };
       });
     // Notionに新規追加されたタスクを追加
@@ -4967,6 +4968,19 @@ function startNow(taskId) {
   saveState();
   renderAll();
   switchTab('main');
+  // 今日以外の日を表示中の場合、配置した時刻へスクロール（renderAll は先頭に戻すため上書き）
+  if (currentDayOffset !== 0) {
+    const _min = nowMin;
+    requestAnimationFrame(() => {
+      const tw = document.getElementById('tlWrap');
+      if (!tw || !currentRange) return;
+      const dur = currentRange.end - currentRange.start;
+      if (dur > 0) {
+        const frac = Math.max(0, Math.min(1, (_min - currentRange.start) / dur));
+        tw.scrollTop = Math.max(0, tw.scrollHeight * frac - tw.clientHeight / 3);
+      }
+    });
+  }
   const hStr = String(now.getHours()).padStart(2,'0');
   const mStr = String(now.getMinutes()).padStart(2,'0');
   showToast(`▶「${task.title}」を ${hStr}:${mStr} に開始しました`);
