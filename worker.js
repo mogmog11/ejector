@@ -268,41 +268,57 @@ async function notionPullAllTasks(token, databaseId) {
       }
       if (!name) continue;
 
-      // 開始時刻をパース（date / rich_text / formula の各型に対応）
+      // ── 時刻・所要時間パース ───────────────────────────────
+      // ① 「実行予定日」の日時範囲を最優先で使用
+      //    Notionでは "15:41 → 16:06" のように実行予定日に直接時刻を入れる使い方が主流
       let start = null;
-      const startProp = p['開始時刻'];
-      if (startProp) {
-        let timeStr = '';
-        if (startProp.type === 'date')       timeStr = startProp.date?.start || '';
-        else if (startProp.type === 'rich_text')  timeStr = (startProp.rich_text || []).map(t => t.plain_text).join('');
-        else if (startProp.type === 'formula') timeStr = startProp.formula?.string || '';
-        const m = timeStr.match(/(\d{1,2}):(\d{2})/);
-        if (m) start = parseInt(m[1]) * 60 + parseInt(m[2]);
-      }
-
-      // 開始時刻が未設定なら「実行予定日」の時刻を使用
-      const execDateProp = p['実行予定日'];
-      if (start === null && execDateProp?.type === 'date' && execDateProp.date?.start) {
-        const m = execDateProp.date.start.match(/T(\d{2}):(\d{2})/);
-        if (m) start = parseInt(m[1]) * 60 + parseInt(m[2]);
-      }
-
-      // 終了時刻をパースして duration を計算（date 型）
       let duration = p['予定時間（分）']?.number || 30;
-      const endProp = p['終了時刻'];
-      if (endProp?.type === 'date' && endProp.date?.start) {
-        const m = endProp.date.start.match(/(\d{1,2}):(\d{2})/);
-        if (m) {
-          const end = parseInt(m[1]) * 60 + parseInt(m[2]);
-          if (start !== null && end > start) duration = end - start;
+
+      const execDateProp = p['実行予定日'];
+      if (execDateProp?.type === 'date' && execDateProp.date?.start) {
+        const ms = execDateProp.date.start.match(/T(\d{2}):(\d{2})/);
+        if (ms) {
+          start = parseInt(ms[1]) * 60 + parseInt(ms[2]);
+          // end がある場合は duration を実行予定日の範囲から計算
+          if (execDateProp.date.end) {
+            const me = execDateProp.date.end.match(/T(\d{2}):(\d{2})/);
+            if (me) {
+              const end = parseInt(me[1]) * 60 + parseInt(me[2]);
+              if (end > start) duration = end - start;
+            }
+          }
         }
       }
 
-      // 終了時刻も未設定なら「実行予定日」の end 時刻を使用
-      if (execDateProp?.type === 'date' && execDateProp.date?.end) {
-        const m = execDateProp.date.end.match(/T(\d{2}):(\d{2})/);
-        if (m) {
-          const end = parseInt(m[1]) * 60 + parseInt(m[2]);
+      // ② 「実行予定日」に時刻がない場合のみ「開始時刻」プロパティを参照
+      if (start === null) {
+        const startProp = p['開始時刻'];
+        if (startProp) {
+          let timeStr = '';
+          if (startProp.type === 'date') {
+            // date型は "T00:00" がデフォルト値として入ることがあるため非ゼロ時刻のみ採用
+            const m = (startProp.date?.start || '').match(/T(\d{2}):(\d{2})/);
+            if (m && (parseInt(m[1]) > 0 || parseInt(m[2]) > 0)) {
+              start = parseInt(m[1]) * 60 + parseInt(m[2]);
+            }
+          } else if (startProp.type === 'rich_text') {
+            timeStr = (startProp.rich_text || []).map(t => t.plain_text).join('');
+            const m = timeStr.match(/(\d{1,2}):(\d{2})/);
+            if (m) start = parseInt(m[1]) * 60 + parseInt(m[2]);
+          } else if (startProp.type === 'formula') {
+            timeStr = startProp.formula?.string || '';
+            const m = timeStr.match(/(\d{1,2}):(\d{2})/);
+            if (m) start = parseInt(m[1]) * 60 + parseInt(m[2]);
+          }
+        }
+      }
+
+      // ③ 「終了時刻」プロパティで duration を上書き（開始時刻フォールバック使用時のみ）
+      const endProp = p['終了時刻'];
+      if (endProp?.type === 'date' && endProp.date?.start) {
+        const me = endProp.date.start.match(/(\d{1,2}):(\d{2})/);
+        if (me) {
+          const end = parseInt(me[1]) * 60 + parseInt(me[2]);
           if (start !== null && end > start) duration = end - start;
         }
       }

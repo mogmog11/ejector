@@ -2487,8 +2487,12 @@ function loadNotionTasks(remoteTasks) {
       .filter(t => t._notionPageId && remoteMap.has(t._notionPageId))
       .map(t => {
         const remote = remoteMap.get(t._notionPageId);
-        return { ...remote, start: t.start, duration: t.duration,
-                 // Notionのallocated(=true)を優先。ユーザーが手動で「後で」に移した場合のみfalseを保持
+        return { ...remote,
+                 // start: ローカルが 0 や null（バグによる誤設定）の場合は Notion 側の値を使用。
+                 //        ユーザーが手動でスケジュールした正の値はそのまま維持。
+                 start: (t.start > 0) ? t.start : remote.start,
+                 duration: t.duration,
+                 // allocated: Notion が true を返す場合は必ずバーチカルへ
                  allocated: remote.allocated ? true : t.allocated,
                  taskType: t.taskType,
                  doneDates: mergeDoneDates(t.doneDates, remote.doneDates) };
