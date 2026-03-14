@@ -2391,11 +2391,15 @@ function disconnectNotion() {
   showNotionStatus('off');
 }
 
+let _notionSyncing = false; // 排他制御フラグ（二重実行防止）
+
 async function syncNotion() {
+  if (_notionSyncing) return; // 同期中なら即リターン
   if (!notionCfg.databaseId || !syncCfg.workerUrl) {
     showNotionStatus('off');
     return;
   }
+  _notionSyncing = true;
   showNotionStatus('syncing');
   try {
     // ① EJECTORで「今日」新規作成したタスク（_notionPageId なし・起床就寝除く・未完了）をNotionへ送信
@@ -2451,6 +2455,8 @@ async function syncNotion() {
   } catch(e) {
     console.error('Notion sync error:', e);
     showNotionStatus('error', e.message);
+  } finally {
+    _notionSyncing = false; // 成功・失敗どちらでも必ず解除
   }
 }
 
@@ -2459,17 +2465,12 @@ function loadNotionTasks(remoteTasks) {
   // Workerからのタスクに正しい日付キーをセット（integerの0はYYYYMMDD形式に変換）
   const dk = offsetToDateKey(0); // 今日の日付キー (例: 20260310)
 
-  // ── Notion側の重複除去
-  // ① 同じ _notionPageId（APIが同一ページを重複返却した場合）
-  // ② タイトル＋所要時間が完全一致（Notionに誤って同名タスクが複数登録されている場合）
-  const seenRemoteIds  = new Set();
-  const seenTitleDur   = new Set();
-  const dedupedRemote  = remoteTasks.filter(t => {
+  // ── Notion側の重複除去（同じ _notionPageId のみ排除）
+  // ※ タイトル+所要時間での重複除去は正当な同名タスクまで消してしまうため削除
+  const seenRemoteIds = new Set();
+  const dedupedRemote = remoteTasks.filter(t => {
     if (!t._notionPageId || seenRemoteIds.has(t._notionPageId)) return false;
     seenRemoteIds.add(t._notionPageId);
-    const titleKey = `${t.title}__${t.duration}`;
-    if (seenTitleDur.has(titleKey)) return false;
-    seenTitleDur.add(titleKey);
     return true;
   });
 
@@ -2526,8 +2527,11 @@ function loadNotionTasks(remoteTasks) {
     const newNotion = fixed.filter(t => t.id && !seenIds.has(t._notionPageId));
     // 今日のフィルターに引っかからなかったローカルNotionタスク（削除されていない）を保持
     // （例: 実行予定日が変更された・時刻なしのまま完了済み）
+    // ただし過去日付のものは除外（増殖防止）
     const orphanNotion = state.tasks.filter(t =>
-      t._notionPageId && !remoteMap.has(t._notionPageId)
+      t._notionPageId &&
+      !remoteMap.has(t._notionPageId) &&
+      (t.allocatedOffset || 0) >= dk
     );
     state.tasks = [...nonNotion, ...updatedNotion, ...newNotion, ...orphanNotion];
   }
