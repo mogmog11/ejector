@@ -2494,7 +2494,12 @@ function loadNotionTasks(remoteTasks) {
     // Notionに新規追加されたタスクを追加
     const seenIds = new Set(updatedNotion.map(t => t._notionPageId));
     const newNotion = fixed.filter(t => t.id && !seenIds.has(t._notionPageId));
-    state.tasks = [...nonNotion, ...updatedNotion, ...newNotion];
+    // 今日のフィルターに引っかからなかったローカルNotionタスク（削除されていない）を保持
+    // （例: 実行予定日が変更された・時刻なしのまま完了済み）
+    const orphanNotion = state.tasks.filter(t =>
+      t._notionPageId && !remoteMap.has(t._notionPageId)
+    );
+    state.tasks = [...nonNotion, ...updatedNotion, ...newNotion, ...orphanNotion];
   }
 }
 
@@ -4188,9 +4193,22 @@ function toggleDone(id) {
       task.duration = task._origDuration;
       delete task._origDuration;
     }
+    // あとでリストから完了→バーチカルへ移した場合は元に戻す
+    if (task._doneAllocated) {
+      task.allocated = false;
+      delete task._doneAllocated;
+    }
   } else {
     // チェックを入れる
     task.doneDates.push(dk);
+    // あとでリストのタスクを今の時刻でバーチカルに配置
+    if (currentDayOffset === 0 && !task.allocated) {
+      const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+      task.allocated = true;
+      task.allocatedOffset = dk;
+      task.start = Math.max(0, nowMin - task.duration);
+      task._doneAllocated = true; // チェックを外した時に元に戻すフラグ
+    }
     if (currentDayOffset === 0 && task.allocated) {
       const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
       const taskStart = getTaskStart(task, 0);

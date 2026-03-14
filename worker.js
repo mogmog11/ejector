@@ -55,6 +55,7 @@ async function handleRequest(request, env) {
 
     // ── タスクデータ GET/PUT ──────────────────────────
     if (path === '/' || path === '') {
+      if (!env.KV) return json({ error: 'KV namespace not bound. Add [[kv_namespaces]] to wrangler.toml' }, 503);
       if (request.method === 'GET') {
         const data = await env.KV.get('ejector_data');
         return cors(data || '{}', 200, { 'Content-Type': 'application/json' });
@@ -68,6 +69,7 @@ async function handleRequest(request, env) {
 
     // ── Push サブスクリプション登録 POST /subscribe ───
     if (path === '/subscribe' && request.method === 'POST') {
+      if (!env.KV) return json({ error: 'KV not bound' }, 503);
       const sub = await request.json();
       // 既存サブスクリプション一覧を取得
       const existing = JSON.parse(await env.KV.get('push_subscriptions') || '[]');
@@ -80,6 +82,7 @@ async function handleRequest(request, env) {
 
     // ── Push サブスクリプション削除 DELETE /subscribe ─
     if (path === '/subscribe' && request.method === 'DELETE') {
+      if (!env.KV) return json({ error: 'KV not bound' }, 503);
       const { endpoint } = await request.json();
       const existing = JSON.parse(await env.KV.get('push_subscriptions') || '[]');
       await env.KV.put('push_subscriptions', JSON.stringify(existing.filter(s => s.endpoint !== endpoint)));
