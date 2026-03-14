@@ -2456,7 +2456,22 @@ async function syncNotion() {
 function loadNotionTasks(remoteTasks) {
   // Workerからのタスクに正しい日付キーをセット（integerの0はYYYYMMDD形式に変換）
   const dk = offsetToDateKey(0); // 今日の日付キー (例: 20260310)
-  const fixed = remoteTasks.map(t => ({
+
+  // ── Notion側の重複除去
+  // ① 同じ _notionPageId（APIが同一ページを重複返却した場合）
+  // ② タイトル＋所要時間が完全一致（Notionに誤って同名タスクが複数登録されている場合）
+  const seenRemoteIds  = new Set();
+  const seenTitleDur   = new Set();
+  const dedupedRemote  = remoteTasks.filter(t => {
+    if (!t._notionPageId || seenRemoteIds.has(t._notionPageId)) return false;
+    seenRemoteIds.add(t._notionPageId);
+    const titleKey = `${t.title}__${t.duration}`;
+    if (seenTitleDur.has(titleKey)) return false;
+    seenTitleDur.add(titleKey);
+    return true;
+  });
+
+  const fixed = dedupedRemote.map(t => ({
     ...t,
     allocatedOffset: dk,
     createdOffset:   dk,
@@ -2483,8 +2498,15 @@ function loadNotionTasks(remoteTasks) {
     // Notion由来でないタスク（手動作成・起床・就寝）はそのまま保持
     const nonNotion = state.tasks.filter(t => !t._notionPageId);
     // 既存のNotionタスクを更新（時刻・長さ・完了状態はローカルとNotionの論理和）
+    // ローカルに同じ_notionPageIdが複数ある場合（過去のバグ由来）は最初の1件のみ使用
+    const seenLocalIds = new Set();
     const updatedNotion = state.tasks
-      .filter(t => t._notionPageId && remoteMap.has(t._notionPageId))
+      .filter(t => {
+        if (!t._notionPageId || !remoteMap.has(t._notionPageId)) return false;
+        if (seenLocalIds.has(t._notionPageId)) return false; // 重複をスキップ
+        seenLocalIds.add(t._notionPageId);
+        return true;
+      })
       .map(t => {
         const remote = remoteMap.get(t._notionPageId);
         return { ...remote,
@@ -2506,6 +2528,23 @@ function loadNotionTasks(remoteTasks) {
       t._notionPageId && !remoteMap.has(t._notionPageId)
     );
     state.tasks = [...nonNotion, ...updatedNotion, ...newNotion, ...orphanNotion];
+  }
+
+  // ── Notionタスクの重複・同時刻を解消して縦一列に並べ直す ──────────
+  // 同じ時刻に複数タスクが入ると横並びになるため、前のタスク終了後に順番配置する
+  const notionAllocated = state.tasks
+    .filter(t => t._notionPageId && t.allocated && !t.isWakeUp && !t.isSleep)
+    .sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
+
+  if (notionAllocated.length > 1) {
+    let currentEnd = (notionAllocated[0].start ?? 540) + notionAllocated[0].duration;
+    for (let i = 1; i < notionAllocated.length; i++) {
+      const task = notionAllocated[i];
+      if ((task.start ?? 0) < currentEnd) {
+        task.start = currentEnd; // 前のタスク終了直後に配置
+      }
+      currentEnd = task.start + task.duration;
+    }
   }
 }
 
