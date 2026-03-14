@@ -2487,7 +2487,9 @@ function loadNotionTasks(remoteTasks) {
       .filter(t => t._notionPageId && remoteMap.has(t._notionPageId))
       .map(t => {
         const remote = remoteMap.get(t._notionPageId);
-        return { ...remote, start: t.start, duration: t.duration, allocated: t.allocated,
+        return { ...remote, start: t.start, duration: t.duration,
+                 // Notionのallocated(=true)を優先。ユーザーが手動で「後で」に移した場合のみfalseを保持
+                 allocated: remote.allocated ? true : t.allocated,
                  taskType: t.taskType,
                  doneDates: mergeDoneDates(t.doneDates, remote.doneDates) };
       });

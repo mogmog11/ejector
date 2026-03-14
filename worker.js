@@ -319,7 +319,7 @@ async function notionPullAllTasks(token, databaseId) {
         id:              parseInt(page.id.replace(/-/g, '').substring(0, 10), 16),
         _notionPageId:   page.id,
         title:           name,   // EJECTORは task.title を使用（name ではない）
-        allocated:       start !== null,
+        allocated:       true,   // 実行予定日が設定されているタスクは常にバーチカルへ
         start:           start ?? 9 * 60,
         duration,
         category,
