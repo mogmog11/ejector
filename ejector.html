@@ -4715,21 +4715,24 @@ function updateClock() {
         const key = `${task.id}-${taskStart}`;
         if (taskStart === min && !_notifiedKeys.has(key)) {
           _notifiedKeys.add(key);
-          navigator.serviceWorker.ready.then(reg => {
-            reg.showNotification(`⏰ ${task.title}`, {
-              body: '開始時刻になりました',
-              icon: './icon-192.png',
-              badge: './icon-192.png',
-              tag: key,
-            });
-          }).catch(() => {
-            new Notification(`⏰ ${task.title}`, {
-              body: '開始時刻になりました',
-              icon: './icon-192.png',
-              badge: './icon-192.png',
-              tag: key,
-            });
+          const showNotif = () => new Notification(`⏰ ${task.title}`, {
+            body: '開始時刻になりました',
+            icon: './icon-192.png',
+            badge: './icon-192.png',
+            tag: key,
           });
+          if (location.protocol !== 'file:' && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(reg => {
+              reg.showNotification(`⏰ ${task.title}`, {
+                body: '開始時刻になりました',
+                icon: './icon-192.png',
+                badge: './icon-192.png',
+                tag: key,
+              });
+            }).catch(showNotif);
+          } else {
+            showNotif();
+          }
         }
       });
     }
@@ -5243,7 +5246,7 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 async function updatePushUI() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || location.protocol === 'file:') {
     document.getElementById('pushSubscribeBtn').textContent = '⚠ このブラウザは非対応';
     document.getElementById('pushSubscribeBtn').disabled = true;
     return;
@@ -5813,7 +5816,8 @@ function initResizeHandle(handleEl, task) {
 // ══════════════════════════════════════════════
 //  Service Worker 登録
 // ══════════════════════════════════════════════
-if ('serviceWorker' in navigator) {
+// file:// プロトコルでは Service Worker は動作しないため登録をスキップ
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
