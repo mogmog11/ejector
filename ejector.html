@@ -2419,6 +2419,8 @@ async function syncNotion() {
             const t = state.tasks.find(t => t.id === ejectorId);
             if (t) t._notionPageId = notionPageId;
           });
+          // _notionPageId を即座にlocalStorageへ保存（F5リロードで重複pushされないように）
+          saveToLocal();
         }
       }
     }
